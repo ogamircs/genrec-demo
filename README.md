@@ -37,27 +37,27 @@ Per the paper: user interaction histories are formatted as instruction-tuning ex
 - **Inference:** 10-beam search, deduped beams → top-10 list; already-visited names filtered (parity with the classics' masking). 3.8 min for all 1,988 users. Runs through plain `transformers` + `peft` (unsloth's fast-generate KV cache is incompatible with beam search in transformers 5.x).
 - **Diagnostics:** 97.7% of freely generated names exist in the catalog; 10.9% of raw beams were already-visited places; beam lists average 8.9 unique names (a structural handicap at @10).
 
-### 2–6. Classic recommenders (from the course notebook)
+### 2–6. Classic algorithm baselines
 
-Numpy reimplementations of the surprise-based models in the Great Learning Yelp case-study notebook, using the notebook's tuned hyperparameters. `scikit-surprise` ships source-only and needs a C compiler, so the algorithms were ported to vectorized numpy and **validated two ways**: full-matrix predictions match an independent per-pair implementation to 1e-6, and under the notebook's own protocol (≥100-review cohort, random 80/20 rating split) they reproduce its reported numbers:
+Numpy implementations of the standard surprise-style recommenders, with tuned hyperparameters. `scikit-surprise` ships source-only and needs a C compiler, so the algorithms were written in vectorized numpy and **validated two ways**: full-matrix predictions match an independent per-pair implementation to 1e-6, and under a classic rating-prediction protocol (≥100-review cohort, random 80/20 rating split) they land in the expected range for these algorithms:
 
-| Model (notebook protocol) | RMSE | Precision@10 | Recall@10 | F1@10 |
+| Model (rating-prediction protocol) | RMSE | Precision@10 | Recall@10 | F1@10 |
 |---|---|---|---|---|
 | User-user KNN (cosine, k=40, min_k=6) | 0.9945 | 0.756 | 0.443 | 0.559 |
 | Item-item KNN (msd, k=30, min_k=9) | 0.9807 | 0.693 | 0.394 | 0.502 |
 | SVD (n_epochs=20, lr=0.01, reg=0.2) | 0.9322 | 0.788 | 0.447 | 0.570 |
 
 - **Popularity** — items ranked by training rating count (non-personalized reference baseline).
-- **Rank-based** (notebook model 1) — average rating among items with ≥50 interactions.
-- **User-user KNN** (model 2) — surprise `KNNBasic` semantics: cosine similarity over co-rated items only, top-k=40 neighbors, min_k=6, global-mean fallback.
-- **Item-item KNN** (model 3) — same structure, msd similarity, k=30, min_k=9.
-- **FunkSVD** (model 4) — biased MF (μ + bᵤ + bᵢ + qᵢ·pᵤ), 100 factors, SGD, notebook's tuned n_epochs=20 / lr=0.01 / reg=0.2.
-- **CoClustering** (model 5) — *skipped*: the most complex port, and its notebook performance tracks SVD's.
+- **Rank-based** — average rating among items with ≥50 interactions.
+- **User-user KNN** — surprise `KNNBasic` semantics: cosine similarity over co-rated items only, top-k=40 neighbors, min_k=6, global-mean fallback.
+- **Item-item KNN** — same structure, msd similarity, k=30, min_k=9.
+- **FunkSVD** — biased MF (μ + bᵤ + bᵢ + qᵢ·pᵤ), 100 factors, SGD, tuned n_epochs=20 / lr=0.01 / reg=0.2.
+- **CoClustering** — *skipped*: the most complex to implement, and its performance tracks SVD's.
 
 ### Evaluation protocols
 
 - **Main benchmark:** leave-one-out next-item, HR@5/10 and NDCG@5/10 (NDCG = 1/log₂(rank+1)) at **normalized-name level** (chains like "Subway" merge to one item; applied equally to all models). Classic models rank the full catalog with seen items masked; GenRec generates freely.
-- **Sanity check:** the notebook's protocol (RMSE + precision/recall@10 at threshold 3.5) — used only to validate the numpy ports. The gap between these two tables is itself a finding: rating-prediction metrics only rank items the user already rated, which is a far easier task than retrieving 1 item out of 10,230.
+- **Sanity check:** a classic rating-prediction protocol (RMSE + precision/recall@10 at threshold 3.5) — used only to validate the numpy implementations. The gap between these two tables is itself a finding: rating-prediction metrics only rank items the user already rated, which is a far easier task than retrieving 1 item out of 10,230.
 
 ## Key findings
 
@@ -72,7 +72,7 @@ Numpy reimplementations of the surprise-based models in the Great Learning Yelp 
 ```
 genrec/
   01_prepare_data.py       # leave-one-out split + 30k GenRec training examples
-  02_classic_baselines.py  # numpy ports of the notebook models + sanity check
+  02_classic_baselines.py  # classic algorithm baselines + sanity check
   03_genrec_train.py       # unsloth QLoRA fine-tune (~21 min)
   04_genrec_infer.py       # 10-beam generation of top-10 lists (~4 min)
   05_evaluate.py           # unified HR/NDCG table
@@ -104,4 +104,3 @@ python genrec/05_evaluate.py
 
 - Ji, Li, Xu, Hua, Ge, Tan, Zhang — *GenRec: Large Language Model for Generative Recommendation*, [arXiv:2307.00457](https://arxiv.org/abs/2307.00457) (the implemented paper).
 - Netflix Tech Blog — [*GenRec: Towards LLM-native recommendation at Netflix*](https://netflixtechblog.com/genrec-towards-llm-native-recommendation-at-netflix-f20be6f643e3) (related industry work on the same idea).
-- Great Learning — *Yelp Restaurant Recommendation System* case-study notebook (source of the classic baselines; not redistributed here).

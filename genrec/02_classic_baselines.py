@@ -1,17 +1,17 @@
-"""Step 2: Classic recommenders (numpy reimplementation of the notebook's
-surprise models) + full-catalog top-10 recommendations for the leave-one-out
-benchmark.
+"""Step 2: Classic algorithm baselines (numpy implementations of standard
+surprise-style recommenders) + full-catalog top-10 recommendations for the
+leave-one-out benchmark.
 
-Models (notebook's tuned hyperparameters):
-  - rank_based      : avg rating, min 50 interactions (notebook Model 1)
-  - popularity      : most-rated items (extra reference baseline)
+Models (tuned hyperparameters):
+  - rank_based      : avg rating, min 50 interactions
+  - popularity      : most-rated items (reference baseline)
   - user_knn        : KNNBasic user-based, cosine, k=40, min_k=6
   - item_knn        : KNNBasic item-based, msd,    k=30, min_k=9
   - svd             : FunkSVD, n_epochs=20, lr_all=0.01, reg_all=0.2
 
-Also runs the notebook's own protocol (>=100-review cohort, random 80/20
-rating split, RMSE + precision/recall@10) as a sanity check that this
-reimplementation matches the notebook's reported numbers.
+Also runs a classic rating-prediction protocol (>=100-review cohort, random
+80/20 rating split, RMSE + precision/recall@10) as a sanity check on the
+implementations.
 """
 import json
 import re
@@ -212,7 +212,7 @@ def main_benchmark():
     id2name = dict(zip(train["business_id"], train["business_name"].map(norm_name)))
     item_names = [id2name[b] for b in items]
 
-    # --- rank-based & popularity -------------------------------------------
+    # --- rank-based (avg rating, min interactions) & popularity -------------
     t0 = time.time()
     counts = B.sum(axis=0)
     with np.errstate(divide="ignore", invalid="ignore"):
@@ -250,7 +250,7 @@ def main_benchmark():
 
 
 # ---------------------------------------------------------------------------
-# Notebook-protocol sanity check (>=100 cohort, random 80/20 rating split)
+# Rating-protocol sanity check (>=100 cohort, random 80/20 rating split)
 # ---------------------------------------------------------------------------
 
 def knn_pair_predict(sim, R, B, k, min_k, mu, pairs, user_based):
@@ -291,7 +291,7 @@ def precision_recall_at_k(df_pred, k=10, threshold=3.5):
 
 
 def sanity_check():
-    print("\n=== Notebook-protocol sanity check (>=100 cohort, 80/20 split) ===")
+    print("\n=== Rating-protocol sanity check (>=100 cohort, 80/20 split) ===")
     df = pd.read_csv(ROOT.parent / "yelp_reviews.csv",
                      usecols=["user_id", "business_id", "stars"])
     vc = df["user_id"].value_counts()
@@ -350,7 +350,7 @@ def sanity_check():
                         "recall@10": round(r, 3), "f1@10": round(f1, 3)}
         print(f"{name:26s} RMSE {rmse:.4f}  P@10 {p:.3f}  R@10 {r:.3f}  F1@10 {f1:.3f}")
 
-    with open(RESULTS / "sanity_check_notebook_protocol.json", "w") as f:
+    with open(RESULTS / "sanity_check_rating_protocol.json", "w") as f:
         json.dump(sanity, f, indent=2)
 
 

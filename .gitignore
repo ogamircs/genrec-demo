@@ -5,8 +5,8 @@ yelp_reviews.csv
 genrec/data/
 genrec/models/
 
-# course material & paper copies (linked in README, not redistributed)
-MLS_Yelp_Reviews_Notebook_with_Numpy_correction.ipynb
+# local reference material (not part of the project)
+*.ipynb
 *.pdf
 
 # caches

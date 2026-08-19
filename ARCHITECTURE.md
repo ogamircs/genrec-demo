@@ -89,11 +89,11 @@ surprise predicts `r̂(u,i) = Σ_{v∈topk} sim·r / Σ_{v∈topk} sim` over the
 1. **All ratings are positive, so all sims are ≥ 0** — "top-k by similarity, then keep sim > 0" equals surprise's `nlargest(k)` + positive-sim accumulation.
 2. **Most items have fewer raters than k** (mean ≈ 10 raters vs k = 40), so for them "top-k neighbors" = *all* raters, and the whole prediction matrix collapses to three matmuls: `num = Sim·R`, `den = Sim·B`, `cnt = (Sim>0)·B`.
 
-Only the exceptions get corrected: the 562 items with > 40 raters (user-user) and the 1,138 users with > 30 rated items (item-item) are re-computed with an `argpartition`-based exact top-k over just their rater/rated slices. Predictions with `cnt < min_k` or zero denominator become `μ`. Hyperparameters are the notebook's tuned values: user-user cosine k=40/min_k=6, item-item msd k=30/min_k=9.
+Only the exceptions get corrected: the 562 items with > 40 raters (user-user) and the 1,138 users with > 30 rated items (item-item) are re-computed with an `argpartition`-based exact top-k over just their rater/rated slices. Predictions with `cnt < min_k` or zero denominator become `μ`. Hyperparameters are the tuned values: user-user cosine k=40/min_k=6, item-item msd k=30/min_k=9.
 
 ### FunkSVD
 
-Plain SGD on `r̂ = μ + b_u + b_i + q_i·p_u`, 100 factors, `N(0, 0.1)` init with a fixed seed, and the notebook's tuned `n_epochs=20, lr=0.01, reg=0.2`. The update uses pre-update copies of `p_u, q_i` (matching surprise's implementation ordering).
+Plain SGD on `r̂ = μ + b_u + b_i + q_i·p_u`, 100 factors, `N(0, 0.1)` init with a fixed seed, and tuned `n_epochs=20, lr=0.01, reg=0.2`. The update uses pre-update copies of `p_u, q_i` (matching surprise's implementation ordering).
 
 ### From scores to recommendations
 
@@ -104,7 +104,7 @@ For every model: mask already-rated items to `−∞`, stable-argsort each user'
 Two independent validations, both in the repo:
 
 1. **Cross-implementation check** — the vectorized full-matrix KNN was compared against a separately written per-pair predictor on 500 random unseen pairs: max abs difference 1e-6.
-2. **Notebook-protocol sanity run** — the same code, run under the notebook's own protocol (≥ 100-review cohort, seeded random 80/20 rating split, clipped predictions, precision/recall@10 at threshold 3.5), reproduces the notebook's reported magnitudes: RMSE 0.93–0.99, F1@10 0.50–0.57 (`results/sanity_check_notebook_protocol.json`).
+2. **Rating-protocol sanity run** — the same code, run under a classic rating-prediction protocol (≥ 100-review cohort, seeded random 80/20 rating split, clipped predictions, precision/recall@10 at threshold 3.5), lands in the expected range for these algorithms on this data: RMSE 0.93–0.99, F1@10 0.50–0.57 (`results/sanity_check_rating_protocol.json`).
 
 ---
 
@@ -224,8 +224,8 @@ Throughput: ~8.7 users/s, **3.8 min** for 1,988 users. Diagnostics computed at t
 ## Design decisions
 
 - **Names, not IDs** — the paper's core idea; it is what lets the model generalize ("Yogurtland, Yogurtology → Yogurtini") and what makes name-level scoring the right common denominator.
-- **Leave-one-out rather than the notebook's random 80/20** — random rating splits leak future interactions into training and can't express "next item"; the notebook protocol survives only as the sanity check for the numpy ports.
-- **Numpy ports rather than `scikit-surprise`** — surprise is source-only on PyPI and the machine has no C compiler; the ports are validated to 1e-6 against an independent implementation and against the notebook's published numbers.
+- **Leave-one-out rather than a random 80/20 rating split** — random splits leak future interactions into training and can't express "next item"; the rating-prediction protocol survives only as the sanity check for the numpy implementations.
+- **Numpy implementations rather than `scikit-surprise`** — surprise is source-only on PyPI and the machine has no C compiler; the implementations are validated to 1e-6 against an independent per-pair predictor and sanity-checked under the rating-prediction protocol.
 - **Determinism** — every stochastic step is seeded (cohort sampling, SVD init, LoRA init, trainer). Exact loss values still vary slightly across GPUs/driver versions (non-deterministic CUDA kernels); rankings and metrics reproduce to reporting precision.
 
 ## Extension points

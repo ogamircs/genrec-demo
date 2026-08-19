@@ -14,7 +14,7 @@ RESULTS = ROOT / "results"
 MODELS = ["popularity", "rank_based", "user_knn", "item_knn", "svd", "genrec"]
 LABELS = {
     "popularity": "Popularity (most-rated)",
-    "rank_based": "Rank-based (avg rating, notebook M1)",
+    "rank_based": "Rank-based (avg rating)",
     "user_knn": "User-user KNN (cosine, k=40)",
     "item_knn": "Item-item KNN (msd, k=30)",
     "svd": "SVD / matrix factorization (tuned)",
