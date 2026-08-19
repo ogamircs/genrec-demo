@@ -21,7 +21,7 @@ Leave-one-out: each user's chronologically last review is held out; every model 
 
 *(bold = column winner)*
 
-Detailed write-up with training curve, example generations, and diagnostics: [`genrec/results/report.html`](genrec/results/report.html) and [`genrec/results/REPORT.md`](genrec/results/REPORT.md).
+**📊 Live interactive report:** <https://claude.ai/code/artifact/27a02b7c-cb62-4bd8-9aa6-4d1086ca18d5> — training curve, example generations, and diagnostics. Same content as [`genrec/results/report.html`](genrec/results/report.html); prose version in [`genrec/results/REPORT.md`](genrec/results/REPORT.md).
 
 **How it all works** — pipeline data flow, the vectorized algorithms behind each baseline, and the full fine-tuning recipe (LoRA config, loss masking, training dynamics, beam-search inference): [`ARCHITECTURE.md`](ARCHITECTURE.md).
 
