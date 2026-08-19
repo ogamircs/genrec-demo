@@ -5,6 +5,7 @@ LoRA, lr 3e-4, AdamW, linear decay, loss on the target item name only.
 """
 from unsloth import FastLanguageModel  # noqa: F401  (must be first import)
 
+import argparse
 import json
 from pathlib import Path
 
@@ -18,14 +19,24 @@ DATA = ROOT / "data"
 MODELS = ROOT / "models"
 MODELS.mkdir(exist_ok=True)
 
-BASE_MODEL = "unsloth/Llama-3.2-1B-Instruct"
 MAX_SEQ_LEN = 320
 SYSTEM_PROMPT = "You are a restaurant recommendation system."
 
+# v1 quick run: --base unsloth/Llama-3.2-1B-Instruct --epochs 2 --out genrec_lora
+#               (with 01_prepare_data.py N_TRAIN_EXAMPLES = 30_000)
+# v2 big run:   defaults below, all 98k windows
+
 
 def main():
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--base", default="unsloth/Llama-3.2-3B-Instruct")
+    ap.add_argument("--epochs", type=int, default=3)
+    ap.add_argument("--out", default="genrec_lora_3b")
+    ap.add_argument("--warmup", type=int, default=300)
+    args = ap.parse_args()
+
     model, tokenizer = FastLanguageModel.from_pretrained(
-        model_name=BASE_MODEL,
+        model_name=args.base,
         max_seq_length=MAX_SEQ_LEN,
         load_in_4bit=True,
         dtype=None,
@@ -67,10 +78,10 @@ def main():
             max_length=MAX_SEQ_LEN,
             per_device_train_batch_size=8,
             gradient_accumulation_steps=2,
-            num_train_epochs=2,
+            num_train_epochs=args.epochs,
             learning_rate=3e-4,
             lr_scheduler_type="linear",
-            warmup_steps=100,
+            warmup_steps=args.warmup,
             optim="adamw_8bit",
             weight_decay=0.01,
             logging_steps=50,
@@ -95,9 +106,9 @@ def main():
     print("train runtime (s):", stats.metrics.get("train_runtime"))
     print("final train loss:", stats.metrics.get("train_loss"))
 
-    model.save_pretrained(str(MODELS / "genrec_lora"))
-    tokenizer.save_pretrained(str(MODELS / "genrec_lora"))
-    print("adapter saved to models/genrec_lora")
+    model.save_pretrained(str(MODELS / args.out))
+    tokenizer.save_pretrained(str(MODELS / args.out))
+    print(f"adapter saved to models/{args.out}")
 
     # smoke test: greedy generation on 5 training prompts
     FastLanguageModel.for_inference(model)

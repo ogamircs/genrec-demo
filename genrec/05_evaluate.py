@@ -12,7 +12,7 @@ DATA = ROOT / "data"
 RESULTS = ROOT / "results"
 
 MODELS = ["popularity", "rank_based", "user_knn", "item_knn", "svd",
-          "sar", "bpr", "genrec"]
+          "sar", "bpr", "genrec", "genrec_3b_free", "genrec_3b", "genrec_3b_xs"]
 LABELS = {
     "popularity": "Popularity (most-rated)",
     "rank_based": "Rank-based (avg rating)",
@@ -21,7 +21,10 @@ LABELS = {
     "svd": "SVD / matrix factorization (tuned)",
     "sar": "SAR (recommenders-team lib)",
     "bpr": "BPR (Cornac via recommenders)",
-    "genrec": "GenRec (Llama-3.2-1B + LoRA)",
+    "genrec": "GenRec v1 (1B quick, free beams)",
+    "genrec_3b_free": "GenRec (3B full, free 10 beams)",
+    "genrec_3b": "GenRec v2 (3B full, constrained)",
+    "genrec_3b_xs": "GenRec v3 (3B, seen-excluded trie)",
 }
 
 

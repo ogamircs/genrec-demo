@@ -18,7 +18,7 @@ CSV = ROOT.parent / "yelp_reviews.csv"
 MIN_REVIEWS = 20
 MAX_HISTORY = 15          # max prior items in a prompt
 MIN_CONTEXT = 3           # min prior items required for a training example
-N_TRAIN_EXAMPLES = 30_000
+N_TRAIN_EXAMPLES = None   # None = keep all windows (the quick 1B run used 30_000)
 SEED = 42
 
 INSTRUCTION = (
@@ -82,7 +82,7 @@ def main() -> None:
     print(f"total sliding-window examples: {len(examples)}")
 
     rng = random.Random(SEED)
-    if len(examples) > N_TRAIN_EXAMPLES:
+    if N_TRAIN_EXAMPLES is not None and len(examples) > N_TRAIN_EXAMPLES:
         examples = rng.sample(examples, N_TRAIN_EXAMPLES)
     rng.shuffle(examples)
 

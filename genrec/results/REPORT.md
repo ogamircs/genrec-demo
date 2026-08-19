@@ -19,8 +19,11 @@ With one relevant item per user, Recall@10 = HR@10 and Precision@10 = HR@10 / 10
 |---|---|---|---|---|---|---|---|
 | **BPR (Cornac via recommenders)** | **0.0241** | **0.0148** | **0.0428** | **0.0208** | **0.0043** | **0.0428** | **0.0078** |
 | SAR (recommenders-team lib) | 0.0186 | 0.0119 | 0.0312 | 0.0159 | 0.0031 | 0.0312 | 0.0057 |
-| GenRec (Llama-3.2-1B + LoRA) | 0.0141 | 0.0092 | 0.0171 | 0.0102 | 0.0017 | 0.0171 | 0.0031 |
 | Popularity (most-rated) | 0.0111 | 0.0063 | 0.0277 | 0.0116 | 0.0028 | 0.0277 | 0.0050 |
+| GenRec v2 (3B full, constrained 20 beams) | 0.0121 | 0.0079 | 0.0267 | 0.0124 | 0.0027 | 0.0267 | 0.0048 |
+| GenRec v3 (v2 + seen-excluded trie) | 0.0121 | 0.0080 | 0.0262 | 0.0123 | 0.0026 | 0.0262 | 0.0048 |
+| GenRec (3B full, free 10 beams) | 0.0126 | 0.0079 | 0.0216 | 0.0109 | 0.0022 | 0.0216 | 0.0039 |
+| GenRec v1 (1B quick, free 10 beams) | 0.0141 | 0.0092 | 0.0171 | 0.0102 | 0.0017 | 0.0171 | 0.0031 |
 | Rank-based (avg rating) | 0.0040 | 0.0028 | 0.0075 | 0.0040 | 0.0008 | 0.0075 | 0.0014 |
 | SVD / matrix factorization (tuned) | 0.0010 | 0.0005 | 0.0020 | 0.0009 | 0.0002 | 0.0020 | 0.0004 |
 | Item-item KNN (msd, k=30) | 0.0015 | 0.0008 | 0.0015 | 0.0008 | 0.0002 | 0.0015 | 0.0003 |
@@ -29,6 +32,8 @@ With one relevant item per user, Recall@10 = HR@10 and Precision@10 = HR@10 / 10
 *(bold = column winner)*
 
 SAR and BPR come from the [recommenders-team/recommenders](https://github.com/recommenders-team/recommenders) library (SAR via `recommenders.models.sar`; BPR via Cornac, the backend that library wraps): SAR = Jaccard item co-occurrence × time-decayed user affinity (jaccard, 30-day decay); BPR = implicit-feedback MF with a pairwise ranking loss (k=100, 200 iters, lr 0.01, reg 0.001, seed 42).
+
+GenRec variants (see README ablation): v1 = Llama-3.2-1B, 30k windows, 2 epochs, free 10-beam; v2 = Llama-3.2-3B, all 98k windows, 3 epochs (4.3 h), catalog-trie-constrained 20-beam (100% in-catalog, 1,958/1,988 full lists); v3 = v2 with per-user tries excluding visited names (no measurable effect). Training scale bought +26% HR@10, constrained decoding another +24%; top-5 slipped ~15% from popularity-skewed full-data training.
 
 ### Key findings
 

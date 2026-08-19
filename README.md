@@ -4,7 +4,7 @@ An implementation of **GenRec** — *"GenRec: Large Language Model for Generativ
 
 The same *generative recommendation* direction is being pursued at production scale in industry — see Netflix's post on their LLM-native GenRec foundation model: [GenRec: Towards LLM-native recommendation at Netflix](https://netflixtechblog.com/genrec-towards-llm-native-recommendation-at-netflix-f20be6f643e3).
 
-**TL;DR:** a Llama-3.2-1B fine-tuned for 21 minutes to literally *generate the name of the next restaurant a user will visit* beats every rating-prediction baseline by 7–14× on HR@5 — but ranking-optimized collaborative filtering (BPR and SAR, added from the [recommenders-team library](https://github.com/recommenders-team/recommenders)) tops every metric on this sparse, weakly-sequential dataset. Models trained to *rank* beat models trained to predict ratings — and here they beat the LLM too (the paper saw the same sparse-data pattern on Amazon Toys).
+**TL;DR:** an LLM fine-tuned to literally *generate the name of the next restaurant a user will visit* beats every rating-prediction baseline — and scaling it (3B, all 98k training windows, catalog-constrained 20-beam decoding) lifts HR@10 a further 56%, past popularity on NDCG@10. But ranking-optimized collaborative filtering (BPR and SAR, added from the [recommenders-team library](https://github.com/recommenders-team/recommenders)) still tops every metric on this sparse, weakly-sequential dataset — models trained to *rank* beat models trained to predict ratings, and here they beat the LLM too (the paper saw the same sparse-data pattern on Amazon Toys).
 
 ## Results
 
@@ -14,14 +14,28 @@ Leave-one-out: each user's chronologically last review is held out; every model 
 |---|---|---|---|---|---|---|---|
 | **BPR (Cornac via recommenders)** | **0.0241** | **0.0148** | **0.0428** | **0.0208** | **0.0043** | **0.0428** | **0.0078** |
 | SAR (recommenders-team lib) | 0.0186 | 0.0119 | 0.0312 | 0.0159 | 0.0031 | 0.0312 | 0.0057 |
-| GenRec (Llama-3.2-1B + LoRA) | 0.0141 | 0.0092 | 0.0171 | 0.0102 | 0.0017 | 0.0171 | 0.0031 |
 | Popularity (most-rated) | 0.0111 | 0.0063 | 0.0277 | 0.0116 | 0.0028 | 0.0277 | 0.0050 |
+| GenRec v2 (3B full, constrained beams) | 0.0121 | 0.0079 | 0.0267 | 0.0124 | 0.0027 | 0.0267 | 0.0048 |
+| GenRec v1 (1B quick, free beams) | 0.0141 | 0.0092 | 0.0171 | 0.0102 | 0.0017 | 0.0171 | 0.0031 |
 | Rank-based (avg rating) | 0.0040 | 0.0028 | 0.0075 | 0.0040 | 0.0008 | 0.0075 | 0.0014 |
 | SVD / FunkSVD (tuned) | 0.0010 | 0.0005 | 0.0020 | 0.0009 | 0.0002 | 0.0020 | 0.0004 |
 | Item-item KNN (msd, k=30) | 0.0015 | 0.0008 | 0.0015 | 0.0008 | 0.0002 | 0.0015 | 0.0003 |
 | User-user KNN (cosine, k=40) | 0.0000 | 0.0000 | 0.0015 | 0.0005 | 0.0002 | 0.0015 | 0.0003 |
 
 *(bold = column winner)*
+
+### Making GenRec compete — the ablation
+
+Three upgrades were tested on top of the v1 quick recipe (Llama-3.2-1B, 30k training windows, 2 epochs, free 10-beam search):
+
+| Variant | Model & data | Decoding | HR@5 | HR@10 | NDCG@10 |
+|---|---|---|---|---|---|
+| v1 (quick) | 1B · 30k ex. · 2 ep. | free, 10 beams | **0.0141** | 0.0171 | 0.0102 |
+| + training scale | 3B · 98k ex. · 3 ep. | free, 10 beams | 0.0126 | 0.0216 | 0.0109 |
+| **v2 (+ constrained)** | 3B · 98k ex. · 3 ep. | catalog trie, 20 beams | 0.0121 | **0.0267** | **0.0124** |
+| v3 (+ seen-excluded) | 3B · 98k ex. · 3 ep. | per-user trie, 20 beams | 0.0121 | 0.0262 | 0.0123 |
+
+Training scale bought +26% HR@10 and constrained decoding another +24% (**+56% total**, with 100% in-catalog generations and NDCG@10 above popularity). Excluding already-visited names from the trie changed nothing — the model wasn't wasting beams on revisits. The cost: top-5 slipped ~15%, traceable to the full-data training itself (popularity-skewed windows), not the decoding. BPR still leads by a wide margin.
 
 **📊 Live interactive report:** <https://claude.ai/code/artifact/27a02b7c-cb62-4bd8-9aa6-4d1086ca18d5> — training curve, example generations, and diagnostics. Same content as [`genrec/results/report.html`](genrec/results/report.html); prose version in [`genrec/results/REPORT.md`](genrec/results/REPORT.md).
 
@@ -34,10 +48,10 @@ Leave-one-out: each user's chronologically last review is held out; every model 
 Per the paper: user interaction histories are formatted as instruction-tuning examples using item **names** (not IDs), so the LLM can exploit name semantics.
 
 - **Template** — System: *"You are a restaurant recommendation system."* · User: *"Given a list of restaurants the user has visited in chronological order, predict the restaurant the user will visit next. Restaurants visited: A, B, C…"* · Assistant: *the next restaurant's name* (the only tokens the loss sees).
-- **Model:** `unsloth/Llama-3.2-1B-Instruct`, 4-bit QLoRA via [unsloth](https://github.com/unslothai/unsloth) — r=16, α=32, all attention + MLP projections, 11.3M trainable params (0.9%).
-- **Training:** 30,000 sliding-window examples (≤15 prior visits each) sampled from 98,278 possible positions; lr 3e-4 (paper's value), AdamW-8bit, linear decay, 2 epochs, effective batch 16. **21 min on an RTX 5070 Ti (16 GB).**
-- **Inference:** 10-beam search, deduped beams → top-10 list; already-visited names filtered (parity with the classics' masking). 3.8 min for all 1,988 users. Runs through plain `transformers` + `peft` (unsloth's fast-generate KV cache is incompatible with beam search in transformers 5.x).
-- **Diagnostics:** 97.7% of freely generated names exist in the catalog; 10.9% of raw beams were already-visited places; beam lists average 8.9 unique names (a structural handicap at @10).
+- **LoRA:** 4-bit QLoRA via [unsloth](https://github.com/unslothai/unsloth) — r=16, α=32, all attention + MLP projections; lr 3e-4 (paper's value), AdamW-8bit, linear decay, effective batch 16.
+- **v1 (quick):** `Llama-3.2-1B-Instruct`, 30k of the 98,278 sliding windows (≤15 prior visits each), 2 epochs — 21 min on an RTX 5070 Ti. Free 10-beam search (97.7% of generations in-catalog; lists average 8.9 names).
+- **v2 (scaled):** `Llama-3.2-3B-Instruct`, all 98,278 windows, 3 epochs — 4.3 h. **Catalog-constrained 20-beam search**: a token trie over the 7,218 business names (`prefix_allowed_tokens_fn`) forces every beam to spell a real restaurant — 100% in-catalog, 1,958/1,988 full lists. `--exclude-seen` additionally builds per-user tries without visited names (measured: no effect).
+- Inference runs through plain `transformers` + `peft` (unsloth's fast-generate KV cache is incompatible with beam search in transformers 5.x).
 
 ### 2–6. Classic algorithm baselines
 
@@ -72,8 +86,8 @@ These two are the interesting contrast: they optimize *ranking* rather than rati
 
 ## Key findings
 
-1. **Ranking-optimized CF wins overall** — BPR and SAR (from the recommenders-team library) top every metric: models trained to rank beat models trained to predict ratings by an order of magnitude at top-N, and on this sparse data they beat the 1B LLM too.
-2. **GenRec beats every rating-prediction baseline** (7–14× at HR@5) but trails BPR and SAR; at depth 10 it also falls behind popularity — Yelp visits are weakly sequential and GenRec's deduped beam lists average 8.9 names vs the others' 10.
+1. **Ranking-optimized CF wins overall** — BPR and SAR (from the recommenders-team library) top every metric even after GenRec's upgrades: models trained to rank beat models trained to predict ratings by an order of magnitude at top-N, and on this sparse data they beat the LLM too.
+2. **The GenRec upgrades worked, up to a ceiling** — 3B + full data + constrained beams lifted HR@10 56% and pushed NDCG@10 past popularity, at a ~15% top-5 cost from popularity-skewed full-data training. GenRec v2 lands within 4% of popularity at HR@10 and clearly above every rating-prediction baseline — still well short of BPR.
 3. **Rating predictors are poor top-N retrievers** despite good RMSE — optimizing squared error rewards obscure items with a few perfect ratings.
 4. **The LLM exploits name semantics** — e.g., a user whose history is full of frozen-yogurt shops gets four more yogurt shops in the top-10, including the exact held-out one. This is the paper's core motivation for names over IDs.
 5. **Consistent with the paper:** GenRec won on dense MovieLens (HR@10 0.131) but lost to its baseline on sparse Amazon Toys (HR@10 0.025); this Yelp result sits in the sparse-data pattern.
@@ -102,10 +116,14 @@ genrec/
 ```bash
 python genrec/01_prepare_data.py
 python genrec/02_classic_baselines.py
-python genrec/03_genrec_train.py
-python genrec/04_genrec_infer.py
-python genrec/06_recommenders_baselines.py   # see env note below
+python genrec/03_genrec_train.py                  # v2 recipe (3B, 3 epochs, ~4.3h)
+python genrec/04_genrec_infer.py                  # constrained 20-beam (~22 min)
+python genrec/06_recommenders_baselines.py        # see env note below
 python genrec/05_evaluate.py
+
+# v1 quick recipe (set N_TRAIN_EXAMPLES = 30_000 in 01 first):
+python genrec/03_genrec_train.py --base unsloth/Llama-3.2-1B-Instruct --epochs 2 --out genrec_lora
+python genrec/04_genrec_infer.py --adapter genrec_lora --beams 10 --out recs_genrec.jsonl --unconstrained
 ```
 
 The SAR/BPR step needs its own environment because `recommenders` supports Python ≤3.11 and (as of 1.2.1) NumPy <2:

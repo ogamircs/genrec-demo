@@ -114,7 +114,12 @@ Two independent validations, both in the repo:
 
 ## Stage 3 — Fine-tuning (`03_genrec_train.py`)
 
-The paper fine-tunes LLaMA-7B with LoRA on instruction-formatted sequences (lr 3e-4, max length 256, batch 128, AdamW, 4×A5000). This implementation adapts that recipe to a 1B model on one consumer GPU.
+The paper fine-tunes LLaMA-7B with LoRA on instruction-formatted sequences (lr 3e-4, max length 256, batch 128, AdamW, 4×A5000). This implementation adapts that recipe to consumer-GPU scale, parametrized via `--base / --epochs / --out`:
+
+- **v1 (quick):** Llama-3.2-1B, 30k sampled windows, 2 epochs — 21 min, final loss ≈ 1.60.
+- **v2 (scaled, current default):** Llama-3.2-3B, all 98,278 windows, 3 epochs (18,429 steps) — 4.3 h at 1.16 it/s, final loss ≈ 1.40.
+
+The description below applies to both; numbers cite the v1 run where they differ only by scale.
 
 ### Model loading
 
@@ -186,14 +191,9 @@ Post-training, the script saves the adapter (`models/genrec_lora/` — adapter w
 
 **Prompt.** Identical system + instruction template, user's last ≤ 15 training-history names, `add_generation_prompt=True` so the text ends at the assistant header.
 
-**Generation.** Users are batched 8 at a time with **left padding** (decoder-only requirement), then:
+**Generation.** Users are batched with **left padding** (decoder-only requirement), then beam search via `model.generate(num_beams=N, num_return_sequences=N, do_sample=False, early_stopping=True, max_new_tokens=24)`. The output's prompt prefix is sliced off (valid because left padding aligns all prompts to the same length) and the N continuations per user are decoded.
 
-```python
-model.generate(num_beams=10, num_return_sequences=10,
-               do_sample=False, early_stopping=True, max_new_tokens=24)
-```
-
-80 beam sequences per forward batch. The output's prompt prefix is sliced off (valid because left padding aligns all prompts to the same length) and the 10 continuations per user are decoded.
+**Constrained decoding (v2 default).** A token trie is built over all 7,218 catalog display names (each name tokenized once with `add_special_tokens=False`; terminal nodes admit `<|eot_id|>`). A `prefix_allowed_tokens_fn` walks the trie along the tokens generated so far and returns the legal continuations — every beam is thereby forced to spell a real business name and stop. `--exclude-seen` builds per-user tries omitting the user's visited names (~10 ms each from the pre-tokenized cache); measured effect: none — the model wasn't spending beams on revisits. `--unconstrained` restores v1's free-form decoding.
 
 **Post-processing per user** — the generative analog of the classics' seen-item masking:
 
@@ -246,10 +246,11 @@ Both emit `results/recs_{sar,bpr}.jsonl` in the shared format and flow through S
 
 Each knob is a top-of-file constant:
 
-| Change | Where | Effect |
+| Change | Where | Status / effect |
 |---|---|---|
-| Bigger cohort | `MIN_REVIEWS` in `01` (20 → 10) | 4,393 users / 138k interactions |
-| More training signal | `N_TRAIN_EXAMPLES` in `01` (up to 98,278) | longer training, likely better HR |
-| Fuller beam lists | `NUM_BEAMS` in `04` (10 → 15–20) | fixes the 8.9-name handicap at @10 |
-| Longer training | `num_train_epochs` in `03` | paper used 5 |
-| Constrained decoding | new logic in `04` | force generations into the catalog trie; removes the 2.3% out-of-catalog waste |
+| More training signal | `N_TRAIN_EXAMPLES` in `01` | **done in v2** (all 98,278): +26% HR@10, −11% HR@5 |
+| Constrained decoding, 20 beams | `04` (`--beams`, trie on by default) | **done in v2**: +24% HR@10, 100% in-catalog |
+| Seen-excluded per-user tries | `04 --exclude-seen` | **done (v3)**: no effect |
+| Bigger cohort | `MIN_REVIEWS` in `01` (20 → 10) | untried: 4,393 users / 138k interactions |
+| Lower LR + early stopping | `03` | untried: likely fix for the v2 top-5 regression |
+| Hybrid: BPR candidates + LLM rerank | new script | untried: combines the two winners |
