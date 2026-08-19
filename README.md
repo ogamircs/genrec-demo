@@ -23,6 +23,8 @@ Leave-one-out: each user's chronologically last review is held out; every model 
 
 Detailed write-up with training curve, example generations, and diagnostics: [`genrec/results/report.html`](genrec/results/report.html) and [`genrec/results/REPORT.md`](genrec/results/REPORT.md).
 
+**How it all works** — pipeline data flow, the vectorized algorithms behind each baseline, and the full fine-tuning recipe (LoRA config, loss masking, training dynamics, beam-search inference): [`ARCHITECTURE.md`](ARCHITECTURE.md).
+
 ## Methodologies tested
 
 ### 1. GenRec (LLM, generative) — the paper's method
