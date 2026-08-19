@@ -1,0 +1,20 @@
+{
+  "user_knn(cos,k40,mk6)": {
+    "rmse": 0.9945,
+    "precision@10": 0.756,
+    "recall@10": 0.443,
+    "f1@10": 0.559
+  },
+  "item_knn(msd,k30,mk9)": {
+    "rmse": 0.9807,
+    "precision@10": 0.693,
+    "recall@10": 0.394,
+    "f1@10": 0.502
+  },
+  "svd(tuned)": {
+    "rmse": 0.9322,
+    "precision@10": 0.788,
+    "recall@10": 0.447,
+    "f1@10": 0.57
+  }
+}

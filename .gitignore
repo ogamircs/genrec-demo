@@ -1,0 +1,15 @@
+# data — fetch per README (https://huggingface.co/datasets/Yelp/yelp_review_full)
+yelp_reviews.csv
+
+# generated pipeline artifacts (recreated by the scripts)
+genrec/data/
+genrec/models/
+
+# course material & paper copies (linked in README, not redistributed)
+MLS_Yelp_Reviews_Notebook_with_Numpy_correction.ipynb
+*.pdf
+
+# caches
+__pycache__/
+unsloth_compiled_cache/
+*.pyc

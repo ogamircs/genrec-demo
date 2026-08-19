@@ -1,0 +1,495 @@
+<title>GenRec on Yelp</title>
+<style>
+  :root {
+    --paper: #FAF9F6;
+    --card: #FFFFFF;
+    --ink: #23211C;
+    --ink-2: #5C574E;
+    --muted: #8A857B;
+    --hairline: #E5E2DA;
+    --grid: #EEEBE4;
+    --accent: #EB6834;        /* GenRec (validated vs both surfaces) */
+    --accent-soft: #FBE3D7;
+    --accent-text: #A64517;
+    --series: #2A78D6;        /* classic models (validated) */
+    --code-bg: #F1EFE9;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --paper: #1B1D22;
+      --card: #22252B;
+      --ink: #F2EFE9;
+      --ink-2: #B8B2A6;
+      --muted: #837D72;
+      --hairline: #33363D;
+      --grid: #2A2D34;
+      --accent: #D95926;
+      --accent-soft: #4A2C1C;
+      --accent-text: #F09A6A;
+      --series: #3987E5;
+      --code-bg: #191B1F;
+    }
+  }
+  :root[data-theme="dark"] {
+    --paper: #1B1D22;
+    --card: #22252B;
+    --ink: #F2EFE9;
+    --ink-2: #B8B2A6;
+    --muted: #837D72;
+    --hairline: #33363D;
+    --grid: #2A2D34;
+    --accent: #D95926;
+    --accent-soft: #4A2C1C;
+    --accent-text: #F09A6A;
+    --series: #3987E5;
+    --code-bg: #191B1F;
+  }
+  * { box-sizing: border-box; }
+  body {
+    background: var(--paper);
+    color: var(--ink);
+    font-family: system-ui, "Segoe UI", Roboto, sans-serif;
+    font-size: 16px;
+    line-height: 1.55;
+    margin: 0;
+    padding: 48px 20px 64px;
+  }
+  .wrap { max-width: 920px; margin: 0 auto; }
+  .mono { font-family: ui-monospace, "Cascadia Code", Consolas, monospace; font-variant-numeric: tabular-nums; }
+
+  .eyebrow {
+    font-size: 12px; letter-spacing: .14em; text-transform: uppercase;
+    color: var(--accent-text); font-weight: 600; margin: 0 0 10px;
+  }
+  h1 {
+    font-family: Charter, "Bitstream Charter", "Sitka Text", Cambria, Georgia, serif;
+    font-size: clamp(34px, 6vw, 46px); line-height: 1.08; font-weight: 700;
+    margin: 0 0 14px; text-wrap: balance;
+  }
+  .standfirst { font-size: 18px; color: var(--ink-2); max-width: 64ch; margin: 0 0 6px; }
+  .standfirst strong { color: var(--ink); }
+  h2 {
+    font-family: Charter, "Bitstream Charter", "Sitka Text", Cambria, Georgia, serif;
+    font-size: 24px; margin: 0 0 4px; text-wrap: balance;
+  }
+  h3 { font-size: 15px; margin: 0; }
+  .sub { color: var(--muted); font-size: 14px; margin: 0 0 18px; }
+  section { margin-top: 54px; }
+
+  /* stat tiles */
+  .tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; margin-top: 28px; }
+  .tile { background: var(--card); border: 1px solid var(--hairline); border-radius: 8px; padding: 16px 18px 14px; }
+  .tile .num { font-size: 30px; font-weight: 700; letter-spacing: -.01em; font-variant-numeric: tabular-nums; }
+  .tile .num.hot { color: var(--accent-text); }
+  .tile .lab { font-size: 13px; color: var(--ink-2); margin-top: 2px; line-height: 1.35; }
+
+  /* bar panels */
+  .legend { display: flex; gap: 22px; align-items: center; font-size: 13px; color: var(--ink-2); margin: 0 0 16px; flex-wrap: wrap; }
+  .swatch { display: inline-block; width: 12px; height: 12px; border-radius: 3px; margin-right: 7px; vertical-align: -1px; }
+  .panels { display: grid; grid-template-columns: 1fr 1fr; gap: 22px 34px; }
+  @media (max-width: 660px) { .panels { grid-template-columns: 1fr; } }
+  .panel { background: var(--card); border: 1px solid var(--hairline); border-radius: 8px; padding: 16px 18px 14px; }
+  .panel .cap { font-size: 12px; color: var(--muted); margin: 1px 0 12px; }
+  .row {
+    display: grid; grid-template-columns: 96px 1fr 56px; align-items: center;
+    gap: 10px; padding: 3px 4px; border-radius: 4px;
+  }
+  .row:hover { background: var(--grid); }
+  .row .m { font-size: 12.5px; color: var(--ink-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .row .v { font-size: 12.5px; text-align: right; color: var(--ink); }
+  .track { position: relative; height: 16px; }
+  .track::before { content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 2px; background: var(--hairline); }
+  .bar { position: absolute; left: 0; top: 1px; bottom: 1px; background: var(--series); border-radius: 0 4px 4px 0; min-width: 2px; }
+  .bar.gen { background: var(--accent); }
+  @media (prefers-reduced-motion: no-preference) {
+    .bar { animation: grow .6s ease-out; transform-origin: left; }
+    @keyframes grow { from { transform: scaleX(0); } }
+  }
+
+  /* tables */
+  .tscroll { overflow-x: auto; border: 1px solid var(--hairline); border-radius: 8px; background: var(--card); }
+  table { border-collapse: collapse; width: 100%; font-size: 14px; }
+  th, td { padding: 10px 14px; text-align: right; white-space: nowrap; }
+  th:first-child, td:first-child { text-align: left; }
+  thead th { font-size: 12px; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); border-bottom: 1px solid var(--hairline); }
+  tbody td { border-bottom: 1px solid var(--grid); font-variant-numeric: tabular-nums; }
+  tbody tr:last-child td { border-bottom: none; }
+  td.win { font-weight: 700; color: var(--accent-text); }
+  tr.genrec td:first-child { font-weight: 600; }
+
+  /* loss chart */
+  .chartcard { background: var(--card); border: 1px solid var(--hairline); border-radius: 8px; padding: 18px 18px 10px; position: relative; }
+  .chartcard svg { width: 100%; height: auto; display: block; }
+  .tip {
+    position: absolute; pointer-events: none; display: none;
+    background: var(--ink); color: var(--paper); font-size: 12px;
+    padding: 4px 9px; border-radius: 5px; white-space: nowrap; transform: translate(-50%, -140%);
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* prompt example */
+  .chat { display: flex; flex-direction: column; gap: 8px; }
+  .msg { border: 1px solid var(--hairline); border-radius: 8px; padding: 10px 14px; font-size: 13.5px; background: var(--card); }
+  .msg b { display: block; font-size: 11px; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); margin-bottom: 3px; }
+  .msg.out { border-color: var(--accent); background: var(--accent-soft); }
+  .msg.out b { color: var(--accent-text); }
+
+  /* example cards */
+  .excard { background: var(--card); border: 1px solid var(--hairline); border-radius: 8px; padding: 16px 18px; margin-bottom: 14px; }
+  .exhead { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; flex-wrap: wrap; }
+  .badge { font-size: 11px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; padding: 3px 9px; border-radius: 99px; }
+  .badge.hit { background: var(--accent); color: #FFF7F0; }
+  .badge.miss { background: none; border: 1px solid var(--hairline); color: var(--muted); }
+  .exhead .who { font-size: 12.5px; color: var(--muted); }
+  .exhist { font-size: 13px; color: var(--ink-2); margin: 0 0 10px; }
+  .exhist b { color: var(--ink); font-weight: 600; }
+  .chips { display: flex; flex-wrap: wrap; gap: 6px; }
+  .chip {
+    font-size: 12.5px; padding: 3px 10px; border-radius: 99px;
+    border: 1px solid var(--hairline); color: var(--ink-2); background: var(--paper);
+  }
+  .chip.hitc { background: var(--accent); border-color: var(--accent); color: #FFF7F0; font-weight: 600; }
+
+  /* histogram */
+  .hist { display: flex; align-items: flex-end; gap: 6px; height: 120px; margin-top: 10px; }
+  .hcol { flex: 1; display: flex; flex-direction: column; justify-content: flex-end; align-items: center; gap: 4px; height: 100%; }
+  .hbar { width: 100%; background: var(--series); border-radius: 4px 4px 0 0; min-height: 2px; }
+  .hbar.hot { background: var(--accent); }
+  .hnum { font-size: 10.5px; color: var(--muted); font-variant-numeric: tabular-nums; }
+  .hlab { font-size: 11px; color: var(--ink-2); font-variant-numeric: tabular-nums; }
+
+  /* methodology */
+  .method { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  @media (max-width: 660px) { .method { grid-template-columns: 1fr; } }
+  .mcard { background: var(--card); border: 1px solid var(--hairline); border-radius: 8px; padding: 14px 16px; font-size: 14px; color: var(--ink-2); }
+  .mcard b.k { display: block; font-size: 12px; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); margin-bottom: 5px; }
+  .mcard strong { color: var(--ink); font-weight: 600; }
+  .mcard .tag { display: inline-block; font-size: 11px; padding: 1px 8px; border-radius: 99px; margin-left: 6px; vertical-align: 1px; }
+  .tag.llm { background: var(--accent-soft); color: var(--accent-text); }
+  .tag.cls { background: var(--grid); color: var(--ink-2); }
+
+  .findings { display: flex; flex-direction: column; gap: 14px; max-width: 70ch; }
+  .findings p { margin: 0; color: var(--ink-2); }
+  .findings p strong { color: var(--ink); }
+  ul.caveats { margin: 0; padding-left: 20px; color: var(--ink-2); max-width: 70ch; }
+  ul.caveats li { margin-bottom: 6px; }
+  pre { background: var(--code-bg); border: 1px solid var(--hairline); border-radius: 8px; padding: 14px 16px; overflow-x: auto; font-size: 13px; line-height: 1.6; margin: 0; }
+  code { font-family: ui-monospace, "Cascadia Code", Consolas, monospace; }
+  .foot { margin-top: 44px; padding-top: 18px; border-top: 1px solid var(--hairline); font-size: 13px; color: var(--muted); }
+  a { color: var(--accent-text); }
+  :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+</style>
+
+<div class="wrap">
+  <header>
+    <p class="eyebrow">Benchmark · Yelp Reviews · Aug 2026</p>
+    <h1>GenRec on Yelp</h1>
+    <p class="standfirst">
+      A 1B-parameter LLM, fine-tuned for 21 minutes to <em>generate the name of the next restaurant a user
+      will visit</em>, benchmarked against five classic recommenders on the same leave-one-out test.
+      <strong>GenRec takes the top-5 metrics; a plain popularity list still wins at depth&nbsp;10.</strong>
+    </p>
+    <div class="tiles">
+      <div class="tile"><div class="num hot">0.0141</div><div class="lab">GenRec HR@5 — best of all six models, ~9× the best personalized classic</div></div>
+      <div class="tile"><div class="num">97.7%</div><div class="lab">of generated names are real businesses — no constrained decoding</div></div>
+      <div class="tile"><div class="num">21 min</div><div class="lab">LoRA fine-tune of Llama-3.2-1B on an RTX 5070 Ti (30k examples)</div></div>
+      <div class="tile"><div class="num">1,988</div><div class="lab">test users, leave-one-out on each user's chronologically last visit</div></div>
+    </div>
+  </header>
+
+  <section>
+    <h2>Next-item accuracy, six models</h2>
+    <p class="sub">Held-out last restaurant per user · matched at business-name level · catalog of 10,230 businesses</p>
+    <div class="legend">
+      <span><span class="swatch" style="background: var(--accent)"></span>GenRec (Llama-3.2-1B + LoRA)</span>
+      <span><span class="swatch" style="background: var(--series)"></span>Classic recommenders</span>
+    </div>
+    <div class="panels">
+      <div class="panel">
+        <h3>HR@5</h3><p class="cap">share of users whose next restaurant is in the top 5</p>
+        <div class="row"><span class="m">GenRec</span><span class="track"><span class="bar gen" style="width:92%"></span></span><span class="v mono">0.0141</span></div>
+        <div class="row"><span class="m">Popularity</span><span class="track"><span class="bar" style="width:72.4%"></span></span><span class="v mono">0.0111</span></div>
+        <div class="row"><span class="m">Rank-based</span><span class="track"><span class="bar" style="width:26.1%"></span></span><span class="v mono">0.0040</span></div>
+        <div class="row"><span class="m">Item-item KNN</span><span class="track"><span class="bar" style="width:9.8%"></span></span><span class="v mono">0.0015</span></div>
+        <div class="row"><span class="m">SVD</span><span class="track"><span class="bar" style="width:6.5%"></span></span><span class="v mono">0.0010</span></div>
+        <div class="row"><span class="m">User-user KNN</span><span class="track"><span class="bar" style="width:0%"></span></span><span class="v mono">0.0000</span></div>
+      </div>
+      <div class="panel">
+        <h3>NDCG@5</h3><p class="cap">position-weighted accuracy in the top 5</p>
+        <div class="row"><span class="m">GenRec</span><span class="track"><span class="bar gen" style="width:92%"></span></span><span class="v mono">0.0092</span></div>
+        <div class="row"><span class="m">Popularity</span><span class="track"><span class="bar" style="width:63%"></span></span><span class="v mono">0.0063</span></div>
+        <div class="row"><span class="m">Rank-based</span><span class="track"><span class="bar" style="width:28%"></span></span><span class="v mono">0.0028</span></div>
+        <div class="row"><span class="m">Item-item KNN</span><span class="track"><span class="bar" style="width:8%"></span></span><span class="v mono">0.0008</span></div>
+        <div class="row"><span class="m">SVD</span><span class="track"><span class="bar" style="width:5%"></span></span><span class="v mono">0.0005</span></div>
+        <div class="row"><span class="m">User-user KNN</span><span class="track"><span class="bar" style="width:0%"></span></span><span class="v mono">0.0000</span></div>
+      </div>
+      <div class="panel">
+        <h3>HR@10</h3><p class="cap">share of users whose next restaurant is in the top 10</p>
+        <div class="row"><span class="m">GenRec</span><span class="track"><span class="bar gen" style="width:56.8%"></span></span><span class="v mono">0.0171</span></div>
+        <div class="row"><span class="m">Popularity</span><span class="track"><span class="bar" style="width:92%"></span></span><span class="v mono">0.0277</span></div>
+        <div class="row"><span class="m">Rank-based</span><span class="track"><span class="bar" style="width:24.9%"></span></span><span class="v mono">0.0075</span></div>
+        <div class="row"><span class="m">Item-item KNN</span><span class="track"><span class="bar" style="width:5%"></span></span><span class="v mono">0.0015</span></div>
+        <div class="row"><span class="m">SVD</span><span class="track"><span class="bar" style="width:6.6%"></span></span><span class="v mono">0.0020</span></div>
+        <div class="row"><span class="m">User-user KNN</span><span class="track"><span class="bar" style="width:5%"></span></span><span class="v mono">0.0015</span></div>
+      </div>
+      <div class="panel">
+        <h3>NDCG@10</h3><p class="cap">position-weighted accuracy in the top 10</p>
+        <div class="row"><span class="m">GenRec</span><span class="track"><span class="bar gen" style="width:80.9%"></span></span><span class="v mono">0.0102</span></div>
+        <div class="row"><span class="m">Popularity</span><span class="track"><span class="bar" style="width:92%"></span></span><span class="v mono">0.0116</span></div>
+        <div class="row"><span class="m">Rank-based</span><span class="track"><span class="bar" style="width:31.7%"></span></span><span class="v mono">0.0040</span></div>
+        <div class="row"><span class="m">Item-item KNN</span><span class="track"><span class="bar" style="width:6.3%"></span></span><span class="v mono">0.0008</span></div>
+        <div class="row"><span class="m">SVD</span><span class="track"><span class="bar" style="width:7.1%"></span></span><span class="v mono">0.0009</span></div>
+        <div class="row"><span class="m">User-user KNN</span><span class="track"><span class="bar" style="width:4%"></span></span><span class="v mono">0.0005</span></div>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h2>Full results</h2>
+    <p class="sub">Bold = column winner. All metrics on the same 1,988 held-out items.</p>
+    <div class="tscroll">
+      <table>
+        <thead><tr><th>Model</th><th>HR@5</th><th>NDCG@5</th><th>HR@10</th><th>NDCG@10</th></tr></thead>
+        <tbody>
+          <tr class="genrec"><td>GenRec (Llama-3.2-1B + LoRA)</td><td class="win">0.0141</td><td class="win">0.0092</td><td>0.0171</td><td>0.0102</td></tr>
+          <tr><td>Popularity (most-rated)</td><td>0.0111</td><td>0.0063</td><td class="win">0.0277</td><td class="win">0.0116</td></tr>
+          <tr><td>Rank-based (avg rating, notebook M1)</td><td>0.0040</td><td>0.0028</td><td>0.0075</td><td>0.0040</td></tr>
+          <tr><td>Item-item KNN (msd, k=30)</td><td>0.0015</td><td>0.0008</td><td>0.0015</td><td>0.0008</td></tr>
+          <tr><td>SVD / matrix factorization (tuned)</td><td>0.0010</td><td>0.0005</td><td>0.0020</td><td>0.0009</td></tr>
+          <tr><td>User-user KNN (cosine, k=40)</td><td>0.0000</td><td>0.0000</td><td>0.0015</td><td>0.0005</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section>
+    <h2>What GenRec actually does</h2>
+    <p class="sub">The paper's recipe: item <em>names</em>, not IDs — one instruction-formatted example per position in each user's visit sequence</p>
+    <div class="chat">
+      <div class="msg"><b>System</b>You are a restaurant recommendation system.</div>
+      <div class="msg"><b>User</b>Given a list of restaurants the user has visited in chronological order, predict the restaurant the user will visit next.<br><br>
+        Restaurants visited: Four Peaks Brewing Co, Heart Attack Grill, Gold Bar Espresso, Tokyo House, Scottsdale Fashion Square, Rula Bula, C-Fu Gourmet Restaurant, Salt River Tubing and Recreation, Pei Wei Asian Diner, Rocky Mountain Chocolate Factory, Taqueria Mexico&hellip;</div>
+      <div class="msg out"><b>Assistant — the only tokens the loss sees</b>Joe's Real BBQ</div>
+    </div>
+    <p style="color: var(--ink-2); max-width: 70ch; font-size: 14.5px;">
+      Training: 30,000 such windows (≤15 prior visits each) sampled from the 98,278 possible positions in the
+      1,988 training sequences, LoRA rank 16 (11.3M trainable parameters, 0.9% of the model), lr 3&times;10<sup>&minus;4</sup>,
+      2 epochs. At test time the model runs <strong>10-beam search</strong> and the deduped beams become the top-10 list —
+      the recommendation is literally <em>generated text</em>, never a lookup.
+    </p>
+  </section>
+
+  <section>
+    <h2>Training loss</h2>
+    <p class="sub">Cross-entropy on target names only, logged every 50 steps · hover for values</p>
+    <div class="chartcard" id="losswrap">
+      <svg id="losssvg" viewBox="0 0 860 300" role="img" aria-label="Training loss falls from 4.45 to about 1.6 over 2 epochs"></svg>
+      <div class="tip" id="losstip"></div>
+    </div>
+  </section>
+
+  <section>
+    <h2>Recommendations up close</h2>
+    <p class="sub">Real test users — their recent visits, the held-out next visit, and GenRec's generated top-10</p>
+
+    <div class="excard">
+      <div class="exhead"><span class="badge hit">Hit · rank 5</span><span class="who">user ai2W745a… · 34 training visits</span></div>
+      <p class="exhist">Recently visited: Yogurtology, Ocean Blue Frozen Yogurt, Cruisin 4 Yogurt, Yogurtime, Berry Good Frozen Yogurt &rarr; next visit was <b>Yogurtini</b></p>
+      <div class="chips">
+        <span class="chip">the gelato spot</span><span class="chip">crazy jim's restaurant</span><span class="chip">yogurt builderz</span><span class="chip">yogurtland</span><span class="chip hitc">yogurtini</span><span class="chip">lola coffee</span><span class="chip">yogis grill</span><span class="chip">yogurberry</span>
+      </div>
+      <p class="exhist" style="margin: 10px 0 0; color: var(--muted); font-size: 12.5px;">The model reads the frozen-yogurt streak straight out of the <em>names</em> and answers with five more yogurt shops — the semantic generalization the paper claims IDs can't give you.</p>
+    </div>
+
+    <div class="excard">
+      <div class="exhead"><span class="badge hit">Hit · rank 1</span><span class="who">user UE1UIi95… · 37 training visits</span></div>
+      <p class="exhist">Recently visited: Pho Da Lat, Left Seat Restaurant &amp; Lounge, Burke Veterinary Hospital, Nello's Pizza, Ahwatukee Barbers &rarr; next visit was <b>Phoenix Sky Harbor International Airport</b></p>
+      <div class="chips">
+        <span class="chip hitc">phoenix sky harbor international airport</span><span class="chip">copper star coffee</span><span class="chip">culver's</span><span class="chip">chandler fashion center</span><span class="chip">pita jungle</span><span class="chip">chase field</span><span class="chip">sushi roku</span><span class="chip">phoenix zoo</span>
+      </div>
+    </div>
+
+    <div class="excard">
+      <div class="exhead"><span class="badge hit">Hit · rank 3</span><span class="who">user MrPOzC4F… · 59 training visits</span></div>
+      <p class="exhist">Recently visited: Fuego Bistro, Bliss ReBAR, My Big Fat Greek Restaurant, PastaBAR &rarr; next visit was <b>Pita Jungle</b></p>
+      <div class="chips">
+        <span class="chip">gallo blanco cafe</span><span class="chip">culinary dropout</span><span class="chip hitc">pita jungle</span><span class="chip">the parlor</span><span class="chip">rnr</span><span class="chip">culver's</span><span class="chip">the vig</span><span class="chip">pizzeria uno</span>
+      </div>
+    </div>
+
+    <div class="excard">
+      <div class="exhead"><span class="badge miss">Miss</span><span class="who">user Xdu24yBa… · 34 training visits</span></div>
+      <p class="exhist">Recently visited: Rice Paper, Tasty Kabob, Baby Kay's Cajun Kitchen, Julio G's Tatum, Pita Jungle &rarr; next visit was <b>Moira Sushi</b></p>
+      <div class="chips">
+        <span class="chip">hana japanese eatery</span><span class="chip">cafe istanbul &amp; market</span><span class="chip">roka akor</span><span class="chip">hiro sushi</span><span class="chip">moto sushi</span><span class="chip">yogurtology</span><span class="chip">sushi roku</span>
+      </div>
+      <p class="exhist" style="margin: 10px 0 0; color: var(--muted); font-size: 12.5px;">A characteristic near-miss: four sushi restaurants in the list — right cuisine, wrong door.</p>
+    </div>
+
+    <div class="excard">
+      <div class="exhead"><span class="badge miss">Miss</span><span class="who">user 7Ztf1LME… · 21 training visits</span></div>
+      <p class="exhist">Recently visited: Don &amp; Charlie's, Cowboy Ciao, Rancho Pinot Grill, Salt Cellar, Scottsdale Fashion Square &rarr; next visit was <b>Electric Ladyland</b></p>
+      <div class="chips">
+        <span class="chip">saddle ranch chop house</span><span class="chip">roka akor</span><span class="chip">the vig uptown</span><span class="chip">mastro's ocean club</span><span class="chip">gallo blanco cafe</span><span class="chip">copper star coffee</span><span class="chip">pita jungle</span>
+      </div>
+      <p class="exhist" style="margin: 10px 0 0; color: var(--muted); font-size: 12.5px;">Upscale-Scottsdale history, upscale-Scottsdale guesses — but the actual next stop was a tattoo parlor. This is what "weakly sequential" looks like.</p>
+    </div>
+  </section>
+
+  <section>
+    <h2>Generation diagnostics</h2>
+    <p class="sub">How the free-form generation behaved across all 1,988 users</p>
+    <div class="tiles" style="margin-top: 16px;">
+      <div class="tile"><div class="num">97.7%</div><div class="lab">of generated names exist in the catalog (exact match after normalization)</div></div>
+      <div class="tile"><div class="num">10.9%</div><div class="lab">of raw generations were already-visited places, filtered to match the classics' masking</div></div>
+      <div class="tile"><div class="num">8.9</div><div class="lab">average unique names per 10-beam list — a structural handicap at HR@10</div></div>
+      <div class="tile"><div class="num">2.8%</div><div class="lab">of test targets never appear in training — the cold-start ceiling for every model</div></div>
+    </div>
+    <div class="panel" style="margin-top: 14px;">
+      <h3>Unique names per beam list</h3>
+      <p class="cap">10 beams rarely yield 10 distinct names after dedupe + already-visited filtering (count of users)</p>
+      <div class="hist">
+        <div class="hcol"><span class="hnum">1</span><div class="hbar" style="height:1%"></div><span class="hlab">≤3</span></div>
+        <div class="hcol"><span class="hnum">5</span><div class="hbar" style="height:1%"></div><span class="hlab">4</span></div>
+        <div class="hcol"><span class="hnum">24</span><div class="hbar" style="height:3.2%"></div><span class="hlab">5</span></div>
+        <div class="hcol"><span class="hnum">56</span><div class="hbar" style="height:7.6%"></div><span class="hlab">6</span></div>
+        <div class="hcol"><span class="hnum">135</span><div class="hbar" style="height:18.3%"></div><span class="hlab">7</span></div>
+        <div class="hcol"><span class="hnum">353</span><div class="hbar" style="height:47.8%"></div><span class="hlab">8</span></div>
+        <div class="hcol"><span class="hnum">671</span><div class="hbar" style="height:90.8%"></div><span class="hlab">9</span></div>
+        <div class="hcol"><span class="hnum">739</span><div class="hbar hot" style="height:100%"></div><span class="hlab">10</span></div>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h2>Methodologies tested</h2>
+    <p class="sub">Six recommenders, one shared protocol: train on everything before each user's last visit, predict that visit</p>
+    <div class="method">
+      <div class="mcard"><b class="k">GenRec <span class="tag llm">LLM · generative</span></b>
+        Ji et al., arXiv 2307.00457. <strong>Llama-3.2-1B-Instruct</strong>, 4-bit QLoRA via unsloth (r=16, &alpha;=32, all attention+MLP projections).
+        Sequences of business names &rarr; next name; loss on the target only; lr 3e-4, 2 epochs, effective batch 16.
+        Inference: 10-beam search, deduped. <em>Trains in 21 min, infers in 3.8 min.</em></div>
+      <div class="mcard"><b class="k">Popularity <span class="tag cls">non-personalized</span></b>
+        Items ranked by training rating <strong>count</strong>; the same list for everyone minus each user's seen items.
+        The strongest classic baseline here — and the honest bar any personalized model must clear.</div>
+      <div class="mcard"><b class="k">Rank-based <span class="tag cls">notebook model 1</span></b>
+        Items ranked by <strong>average rating</strong> among those with &ge;50 training interactions (412 qualify), per the notebook's
+        <code>top_n_restaurant</code>. Better than the CF models at top-N, worse than raw popularity.</div>
+      <div class="mcard"><b class="k">User-user KNN <span class="tag cls">notebook model 2</span></b>
+        surprise's <code>KNNBasic</code> formula reimplemented in numpy: cosine similarity over co-rated items,
+        k=40 neighbors, min_k=6 (the notebook's tuned values). Predicts ratings well (RMSE 0.99) but its top-10
+        lists are dominated by obscure items a handful of neighbors loved.</div>
+      <div class="mcard"><b class="k">Item-item KNN <span class="tag cls">notebook model 3</span></b>
+        Same structure, item side: msd similarity, k=30, min_k=9 (tuned values). Numpy port validated to
+        1&times;10<sup>&minus;6</sup> against an independent per-pair implementation.</div>
+      <div class="mcard"><b class="k">FunkSVD <span class="tag cls">notebook model 4</span></b>
+        Biased matrix factorization (&mu; + b<sub>u</sub> + b<sub>i</sub> + q<sub>i</sub>&middot;p<sub>u</sub>), 100 factors,
+        SGD with the notebook's tuned n_epochs=20, lr=0.01, reg=0.2. Best rating predictor of the three
+        (RMSE 0.93) — and still near the bottom at next-item retrieval.</div>
+    </div>
+    <p style="color: var(--ink-2); max-width: 70ch; font-size: 14.5px;">
+      <strong>Why numpy and not scikit-surprise:</strong> surprise ships source-only and this machine has no C compiler.
+      The ports were validated under the notebook's own protocol (&ge;100-review cohort, random 80/20 rating split) before use:
+    </p>
+    <div class="tscroll">
+      <table>
+        <thead><tr><th>Model (notebook protocol)</th><th>RMSE</th><th>Precision@10</th><th>Recall@10</th><th>F1@10</th></tr></thead>
+        <tbody>
+          <tr><td>User-user KNN (cosine, k=40, min_k=6)</td><td>0.9945</td><td>0.756</td><td>0.443</td><td>0.559</td></tr>
+          <tr><td>Item-item KNN (msd, k=30, min_k=9)</td><td>0.9807</td><td>0.693</td><td>0.394</td><td>0.502</td></tr>
+          <tr><td>SVD (n_epochs=20, lr=0.01, reg=0.2)</td><td>0.9322</td><td>0.788</td><td>0.447</td><td>0.570</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p style="color: var(--ink-2); max-width: 70ch; font-size: 14.5px;">
+      These land on the notebook's reported magnitudes (RMSE &asymp; 1.0, F1@10 &asymp; 0.5) — and the contrast with the
+      table above is the point: <strong>precision@10 there only ranks items the user already rated in the test split;
+      retrieving one restaurant out of 10,230 is a different, much harder problem.</strong>
+      CoClustering (notebook model 5) was skipped — the most complex port, and its notebook performance tracks SVD's.
+    </p>
+  </section>
+
+  <section>
+    <h2>What the numbers say</h2>
+    <div class="findings" style="margin-top: 16px;">
+      <p><strong>GenRec wins where ranking quality matters.</strong> Best HR@5 and NDCG@5 of all six models — when it finds the right restaurant it puts it near the top, beating every personalized classic model by 7–14&times; at HR@5.</p>
+      <p><strong>Popularity is still a strong retriever at depth 10.</strong> Yelp restaurant visits are only weakly sequential, and GenRec's deduped beam lists average 8.9 names against the classics' full 10 — more beams would close part of that gap.</p>
+      <p><strong>Rating predictors are poor top-N retrievers.</strong> KNN and SVD predict ratings well (RMSE 0.93–0.99) yet almost never surface the next-visited restaurant. Optimizing squared error rewards obscure items with a few perfect ratings.</p>
+      <p><strong>The LLM internalized the catalog.</strong> 97.7% of freely generated names are real businesses, and the hit/miss examples show it exploiting name semantics — yogurt shops for yogurt fans, sushi for sushi regulars — exactly the paper's motivation for names over IDs.</p>
+      <p><strong>Consistent with the paper.</strong> GenRec reported HR@10 = 0.025 on sparse Amazon Toys — where it also lost to its baseline — versus 0.131 on dense MovieLens, where it won. This Yelp result sits squarely in the sparse-data pattern.</p>
+    </div>
+  </section>
+
+  <section>
+    <h2>Caveats</h2>
+    <ul class="caveats" style="margin-top: 14px;">
+      <li>Initial metrics: one training run, no hyperparameter search, 2 epochs, 30k of 98k possible training windows.</li>
+      <li>Name-level evaluation merges chain locations (every &ldquo;Subway&rdquo; counts as one item) — applied equally to all models.</li>
+      <li>Beam lists shorter than 10 handicap GenRec at the @10 metrics; raising beams to 15–20 is the first thing to try next.</li>
+    </ul>
+  </section>
+
+  <section>
+    <h2>Reproduce</h2>
+    <p class="sub">Scripts in <code>genrec/</code>, run with the unsloth-studio Python</p>
+    <pre><code>python genrec/01_prepare_data.py       # split + 30k training examples
+python genrec/02_classic_baselines.py  # numpy baselines + notebook sanity check
+python genrec/03_genrec_train.py       # ~21 min on RTX 5070 Ti
+python genrec/04_genrec_infer.py       # ~4 min, 10-beam generation
+python genrec/05_evaluate.py           # final table</code></pre>
+  </section>
+
+  <p class="foot">GenRec: Ji et al., &ldquo;GenRec: Large Language Model for Generative Recommendation,&rdquo; arXiv 2307.00457 ·
+  Data: 229,907 Yelp reviews, 2005–2013, Phoenix metro · Stack: unsloth 2026.8.18, torch 2.10 + CUDA, transformers 5.5 ·
+  Companion files: <code>genrec/results/REPORT.md</code>, repo <code>README.md</code></p>
+</div>
+
+<script>
+(function () {
+  var LOSS = [[0.027,4.447],[0.053,3.249],[0.08,3.028],[0.107,2.932],[0.133,2.87],[0.16,2.758],[0.187,2.587],[0.213,2.535],[0.24,2.476],[0.267,2.458],[0.293,2.377],[0.32,2.381],[0.347,2.312],[0.373,2.282],[0.4,2.291],[0.427,2.197],[0.453,2.164],[0.48,2.124],[0.507,2.19],[0.533,2.085],[0.56,2.11],[0.587,2.107],[0.613,2.113],[0.64,2.055],[0.667,2.066],[0.693,2.015],[0.72,2.071],[0.747,2.043],[0.773,1.944],[0.8,2.031],[0.827,1.969],[0.853,1.933],[0.88,1.935],[0.907,1.936],[0.933,1.935],[0.96,1.9],[0.987,1.885],[1.013,1.834],[1.04,1.723],[1.067,1.679],[1.093,1.674],[1.12,1.684],[1.147,1.711],[1.173,1.675],[1.2,1.676],[1.227,1.704],[1.253,1.72],[1.28,1.773],[1.307,1.709],[1.333,1.634],[1.36,1.709],[1.387,1.675],[1.413,1.635],[1.44,1.683],[1.467,1.624],[1.493,1.628],[1.52,1.609],[1.547,1.576],[1.573,1.594],[1.6,1.645],[1.627,1.657],[1.653,1.607],[1.68,1.607],[1.707,1.615],[1.733,1.661],[1.76,1.594],[1.787,1.653],[1.813,1.59],[1.84,1.596],[1.867,1.596],[1.893,1.573],[1.92,1.623],[1.947,1.578],[1.973,1.548],[2,1.605]];
+  var W = 860, H = 300, L = 46, R = 16, T = 16, B = 34;
+  var x0 = 0, x1 = 2, y0 = 1.4, y1 = 4.6;
+  function px(e) { return L + (e - x0) / (x1 - x0) * (W - L - R); }
+  function py(v) { return T + (y1 - v) / (y1 - y0) * (H - T - B); }
+  var css = getComputedStyle(document.documentElement);
+  function tok(n) { return css.getPropertyValue(n).trim(); }
+  var svg = document.getElementById("losssvg");
+  var s = "";
+  [2, 3, 4].forEach(function (v) {
+    s += '<line x1="' + L + '" y1="' + py(v) + '" x2="' + (W - R) + '" y2="' + py(v) + '" stroke="' + tok("--grid") + '" stroke-width="1"/>';
+    s += '<text x="' + (L - 8) + '" y="' + (py(v) + 4) + '" text-anchor="end" font-size="12" fill="' + tok("--muted") + '">' + v.toFixed(1) + "</text>";
+  });
+  [0, 0.5, 1, 1.5, 2].forEach(function (e) {
+    s += '<text x="' + px(e) + '" y="' + (H - 10) + '" text-anchor="middle" font-size="12" fill="' + tok("--muted") + '">' + e + "</text>";
+  });
+  s += '<line x1="' + L + '" y1="' + py(y0) + '" x2="' + (W - R) + '" y2="' + py(y0) + '" stroke="' + tok("--hairline") + '" stroke-width="1"/>';
+  s += '<line x1="' + px(1) + '" y1="' + T + '" x2="' + px(1) + '" y2="' + (H - B) + '" stroke="' + tok("--hairline") + '" stroke-width="1" stroke-dasharray="3 4"/>';
+  s += '<text x="' + (px(1) + 6) + '" y="' + (T + 12) + '" font-size="11" fill="' + tok("--muted") + '">epoch 2</text>';
+  s += '<text x="' + (W - R) + '" y="' + (H - 10) + '" text-anchor="end" font-size="11" fill="' + tok("--muted") + '">epoch</text>';
+  var path = LOSS.map(function (p, i) { return (i ? "L" : "M") + px(p[0]).toFixed(1) + " " + py(p[1]).toFixed(1); }).join(" ");
+  s += '<path d="' + path + '" fill="none" stroke="' + tok("--accent") + '" stroke-width="2" stroke-linejoin="round"/>';
+  var last = LOSS[LOSS.length - 1];
+  s += '<circle cx="' + px(last[0]) + '" cy="' + py(last[1]) + '" r="4" fill="' + tok("--accent") + '" stroke="' + tok("--card") + '" stroke-width="2"/>';
+  s += '<text x="' + (px(last[0]) - 8) + '" y="' + (py(last[1]) - 10) + '" text-anchor="end" font-size="12" font-weight="600" fill="' + tok("--ink") + '">1.60</text>';
+  s += '<circle id="hoverdot" r="4" fill="' + tok("--accent") + '" stroke="' + tok("--card") + '" stroke-width="2" style="display:none"/>';
+  svg.innerHTML = s;
+
+  var wrapEl = document.getElementById("losswrap");
+  var tip = document.getElementById("losstip");
+  var dot = document.getElementById("hoverdot");
+  wrapEl.addEventListener("mousemove", function (ev) {
+    var r = svg.getBoundingClientRect();
+    var mx = (ev.clientX - r.left) / r.width * W;
+    if (mx < L || mx > W - R) { tip.style.display = "none"; dot.style.display = "none"; return; }
+    var e = x0 + (mx - L) / (W - L - R) * (x1 - x0), best = 0, bd = 1e9;
+    for (var i = 0; i < LOSS.length; i++) { var d = Math.abs(LOSS[i][0] - e); if (d < bd) { bd = d; best = i; } }
+    var p = LOSS[best];
+    dot.setAttribute("cx", px(p[0])); dot.setAttribute("cy", py(p[1])); dot.style.display = "";
+    tip.textContent = "epoch " + p[0].toFixed(2) + " · loss " + p[1].toFixed(3);
+    tip.style.left = (px(p[0]) / W * r.width) + "px";
+    tip.style.top = (py(p[1]) / H * r.height) + "px";
+    tip.style.display = "block";
+  });
+  wrapEl.addEventListener("mouseleave", function () { tip.style.display = "none"; dot.style.display = "none"; });
+})();
+</script>
