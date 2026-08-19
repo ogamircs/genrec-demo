@@ -15,6 +15,9 @@ flowchart LR
     P --> GT[data/genrec_train.jsonl<br/>30,000 examples]
     TI --> CB[02_classic_baselines.py]
     CB --> RC[results/recs_&lt;model&gt;.jsonl ×5]
+    TI --> RB[06_recommenders_baselines.py<br/>SAR + BPR]
+    RB --> RC2[results/recs_sar / recs_bpr]
+    RC2 --> EV
     GT --> TR[03_genrec_train.py<br/>QLoRA fine-tune]
     TR --> AD[models/genrec_lora/<br/>LoRA adapter]
     AD --> IN[04_genrec_infer.py<br/>10-beam generation]
@@ -26,9 +29,10 @@ flowchart LR
     EV --> FM[results/final_metrics.json]
 ```
 
-Two model families consume the **same training interactions** and are scored on the **same held-out items**:
+Three model families consume the **same training interactions** and are scored on the **same held-out items**:
 
-- the five classic recommenders operate on the `(user, item, rating)` matrix;
+- the five classic recommenders (Stage 2) operate on the `(user, item, rating)` matrix;
+- SAR and BPR (Stage 6, from the recommenders-team library) operate on the same interactions with ranking objectives;
 - GenRec operates on the *textual sequence of business names*, per the paper (arXiv 2307.00457): recommendation as conditional text generation.
 
 ---
@@ -42,7 +46,7 @@ Two model families consume the **same training interactions** and are scored on 
 **Name handling.** Two normalizations with different jobs:
 
 - *Display form* (used in prompts): raw name with whitespace collapsed — `"Joe's  Real BBQ" → "Joe's Real BBQ"`. Casing is preserved because the LLM learns to generate it.
-- *Match form* (`norm_name`, used everywhere hits are decided): display form lowercased. All six models are scored in this space.
+- *Match form* (`norm_name`, used everywhere hits are decided): display form lowercased. All eight models are scored in this space.
 
 **Chronological ordering.** A single stable sort by `date` over the whole frame (`sort_values(kind="stable")`). Yelp dates have day granularity, so same-day reviews by one user keep their original CSV order — deterministic across runs.
 
@@ -201,6 +205,15 @@ Throughput: ~8.7 users/s, **3.8 min** for 1,988 users. Diagnostics computed at t
 
 ---
 
+## Stage 6 — recommenders-team baselines (`06_recommenders_baselines.py`)
+
+Two ranking-optimized algorithms from the [recommenders-team library](https://github.com/recommenders-team/recommenders), run through the actual library rather than reimplemented. It supports Python ≤ 3.11 and (as of 1.2.1) NumPy < 2, so this stage runs in its own venv (`.venv-rec`, CPython 3.11 + `recommenders` + `numpy==1.26.4`) — the pipeline's file-based handoff makes mixing interpreters trivial.
+
+- **SAR** (`recommenders.models.sar.SAR`): user affinity = time-decayed sum of ratings (30-day half-life on review timestamps); item similarity = Jaccard over co-occurrence; score = affinity × similarity. Top-30 via `recommend_k_items(remove_seen=True)`, then the shared name-dedupe → top-10. One duplicate (user, item) rating is collapsed keeping the most recent — matching the dense-matrix baselines' last-write-wins behavior.
+- **BPR** (via Cornac, the backend the recommenders library wraps): implicit-feedback MF trained with a pairwise ranking loss — k=100 factors, 200 iterations, lr 0.01, reg 0.001, seed 42. Scores for all items come from the learned factors (`U·Vᵀ + b_i`) mapped back to this pipeline's index order, seen items masked.
+
+Both emit `results/recs_{sar,bpr}.jsonl` in the shared format and flow through Stage 5 unchanged. They are the strongest baselines in the final table — evidence that *ranking-objective* models are the right classical comparison for top-N, not rating predictors.
+
 ## Stage 5 — Evaluation (`05_evaluate.py`)
 
 **Matching space.** All hits are decided at normalized-name level. 898 names map to multiple `business_id`s (chains); GenRec can only emit names, so classics' id-ranked lists are mapped to names and deduped — every model is scored in the identical space. Ground truth = the held-out review's normalized name.
@@ -208,7 +221,8 @@ Throughput: ~8.7 users/s, **3.8 min** for 1,988 users. Diagnostics computed at t
 **Metrics** (single relevant item per user):
 
 - `HR@k` — fraction of users whose target appears in their top-k,
-- `NDCG@k` — `1/log₂(rank+1)` if the target is at `rank ≤ k`, else 0; averaged over users.
+- `NDCG@k` — `1/log₂(rank+1)` if the target is at `rank ≤ k`, else 0; averaged over users,
+- `Precision@k` / `Recall@k` / `F1@k` — computed per user with the fixed denominator k. With one relevant item these collapse to `Recall@k = HR@k` and `Precision@k = HR@k / k`; they are reported so the table speaks the same language as classic rating-split evaluations, but HR/NDCG carry the signal.
 
 **Fairness properties worth knowing:**
 

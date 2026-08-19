@@ -4,20 +4,22 @@ An implementation of **GenRec** — *"GenRec: Large Language Model for Generativ
 
 The same *generative recommendation* direction is being pursued at production scale in industry — see Netflix's post on their LLM-native GenRec foundation model: [GenRec: Towards LLM-native recommendation at Netflix](https://netflixtechblog.com/genrec-towards-llm-native-recommendation-at-netflix-f20be6f643e3).
 
-**TL;DR:** a Llama-3.2-1B fine-tuned for 21 minutes to literally *generate the name of the next restaurant a user will visit* beats every personalized classic model by 7–14× on HR@5 — but a plain popularity list still wins at depth 10 on this sparse, weakly-sequential dataset (the same pattern the paper reports on Amazon Toys).
+**TL;DR:** a Llama-3.2-1B fine-tuned for 21 minutes to literally *generate the name of the next restaurant a user will visit* beats every rating-prediction baseline by 7–14× on HR@5 — but ranking-optimized collaborative filtering (BPR and SAR, added from the [recommenders-team library](https://github.com/recommenders-team/recommenders)) tops every metric on this sparse, weakly-sequential dataset. Models trained to *rank* beat models trained to predict ratings — and here they beat the LLM too (the paper saw the same sparse-data pattern on Amazon Toys).
 
 ## Results
 
-Leave-one-out: each user's chronologically last review is held out; every model emits a top-10 list of business names; hit = held-out name in the list. 1,988 test users, catalog of 10,230 businesses.
+Leave-one-out: each user's chronologically last review is held out; every model emits a top-10 list of business names; hit = held-out name in the list. 1,988 test users, catalog of 10,230 businesses. With one relevant item per user, Recall@10 = HR@10 and Precision@10 = HR@10 / 10; F1@10 is computed per user and averaged.
 
-| Model | HR@5 | NDCG@5 | HR@10 | NDCG@10 |
-|---|---|---|---|---|
-| **GenRec (Llama-3.2-1B + LoRA)** | **0.0141** | **0.0092** | 0.0171 | 0.0102 |
-| Popularity (most-rated) | 0.0111 | 0.0063 | **0.0277** | **0.0116** |
-| Rank-based (avg rating) | 0.0040 | 0.0028 | 0.0075 | 0.0040 |
-| Item-item KNN (msd, k=30) | 0.0015 | 0.0008 | 0.0015 | 0.0008 |
-| SVD / FunkSVD (tuned) | 0.0010 | 0.0005 | 0.0020 | 0.0009 |
-| User-user KNN (cosine, k=40) | 0.0000 | 0.0000 | 0.0015 | 0.0005 |
+| Model | HR@5 | NDCG@5 | HR@10 | NDCG@10 | P@10 | R@10 | F1@10 |
+|---|---|---|---|---|---|---|---|
+| **BPR (Cornac via recommenders)** | **0.0241** | **0.0148** | **0.0428** | **0.0208** | **0.0043** | **0.0428** | **0.0078** |
+| SAR (recommenders-team lib) | 0.0186 | 0.0119 | 0.0312 | 0.0159 | 0.0031 | 0.0312 | 0.0057 |
+| GenRec (Llama-3.2-1B + LoRA) | 0.0141 | 0.0092 | 0.0171 | 0.0102 | 0.0017 | 0.0171 | 0.0031 |
+| Popularity (most-rated) | 0.0111 | 0.0063 | 0.0277 | 0.0116 | 0.0028 | 0.0277 | 0.0050 |
+| Rank-based (avg rating) | 0.0040 | 0.0028 | 0.0075 | 0.0040 | 0.0008 | 0.0075 | 0.0014 |
+| SVD / FunkSVD (tuned) | 0.0010 | 0.0005 | 0.0020 | 0.0009 | 0.0002 | 0.0020 | 0.0004 |
+| Item-item KNN (msd, k=30) | 0.0015 | 0.0008 | 0.0015 | 0.0008 | 0.0002 | 0.0015 | 0.0003 |
+| User-user KNN (cosine, k=40) | 0.0000 | 0.0000 | 0.0015 | 0.0005 | 0.0002 | 0.0015 | 0.0003 |
 
 *(bold = column winner)*
 
@@ -54,6 +56,15 @@ Numpy implementations of the standard surprise-style recommenders, with tuned hy
 - **FunkSVD** — biased MF (μ + bᵤ + bᵢ + qᵢ·pᵤ), 100 factors, SGD, tuned n_epochs=20 / lr=0.01 / reg=0.2.
 - **CoClustering** — *skipped*: the most complex to implement, and its performance tracks SVD's.
 
+### 7–8. Ranking-optimized baselines — from [recommenders-team/recommenders](https://github.com/recommenders-team/recommenders)
+
+Two algorithms added from the recommenders-team library (the former Microsoft Recommenders project), run via the actual library in a separate Python ≤3.11 environment (`genrec/06_recommenders_baselines.py`):
+
+- **SAR** (Smart Adaptive Recommendations, `recommenders.models.sar.SAR`) — Jaccard item co-occurrence similarity × time-decayed user affinity (30-day decay on review timestamps), `recommend_k_items` with seen-item removal.
+- **BPR** (Bayesian Personalized Ranking, via [Cornac](https://github.com/PreferredAI/cornac) — the backend the recommenders library wraps for BPR) — implicit-feedback matrix factorization with a pairwise ranking loss; k=100 factors, 200 iterations, lr 0.01, reg 0.001, seed 42. Scored over all items from the learned factors, seen items masked.
+
+These two are the interesting contrast: they optimize *ranking* rather than rating error, and they top the results table — beating the rating predictors by an order of magnitude and, on this dataset, GenRec as well.
+
 ### Evaluation protocols
 
 - **Main benchmark:** leave-one-out next-item, HR@5/10 and NDCG@5/10 (NDCG = 1/log₂(rank+1)) at **normalized-name level** (chains like "Subway" merge to one item; applied equally to all models). Classic models rank the full catalog with seen items masked; GenRec generates freely.
@@ -61,8 +72,8 @@ Numpy implementations of the standard surprise-style recommenders, with tuned hy
 
 ## Key findings
 
-1. **GenRec wins the precision-oriented metrics** (best HR@5 and NDCG@5 of all six models) and beats every personalized classic model by 7–14× at HR@5.
-2. **Popularity wins at depth 10** — Yelp visits are weakly sequential and GenRec's deduped beam lists average 8.9 names vs the classics' 10.
+1. **Ranking-optimized CF wins overall** — BPR and SAR (from the recommenders-team library) top every metric: models trained to rank beat models trained to predict ratings by an order of magnitude at top-N, and on this sparse data they beat the 1B LLM too.
+2. **GenRec beats every rating-prediction baseline** (7–14× at HR@5) but trails BPR and SAR; at depth 10 it also falls behind popularity — Yelp visits are weakly sequential and GenRec's deduped beam lists average 8.9 names vs the others' 10.
 3. **Rating predictors are poor top-N retrievers** despite good RMSE — optimizing squared error rewards obscure items with a few perfect ratings.
 4. **The LLM exploits name semantics** — e.g., a user whose history is full of frozen-yogurt shops gets four more yogurt shops in the top-10, including the exact held-out one. This is the paper's core motivation for names over IDs.
 5. **Consistent with the paper:** GenRec won on dense MovieLens (HR@10 0.131) but lost to its baseline on sparse Amazon Toys (HR@10 0.025); this Yelp result sits in the sparse-data pattern.
@@ -75,7 +86,8 @@ genrec/
   02_classic_baselines.py  # classic algorithm baselines + sanity check
   03_genrec_train.py       # unsloth QLoRA fine-tune (~21 min)
   04_genrec_infer.py       # 10-beam generation of top-10 lists (~4 min)
-  05_evaluate.py           # unified HR/NDCG table
+  05_evaluate.py           # unified HR / NDCG / Precision / Recall / F1 table
+  06_recommenders_baselines.py  # SAR + BPR from the recommenders-team library
   results/                 # metrics, rec lists, REPORT.md, report.html
   data/                    # (generated by 01, gitignored)
   models/                  # (generated by 03, gitignored)
@@ -92,7 +104,16 @@ python genrec/01_prepare_data.py
 python genrec/02_classic_baselines.py
 python genrec/03_genrec_train.py
 python genrec/04_genrec_infer.py
+python genrec/06_recommenders_baselines.py   # see env note below
 python genrec/05_evaluate.py
+```
+
+The SAR/BPR step needs its own environment because `recommenders` supports Python ≤3.11 and (as of 1.2.1) NumPy <2:
+
+```bash
+py -3.11 -m venv .venv-rec
+.venv-rec/Scripts/pip install recommenders pyarrow "numpy==1.26.4"
+.venv-rec/Scripts/python genrec/06_recommenders_baselines.py
 ```
 
 ## Caveats & next steps
@@ -104,3 +125,4 @@ python genrec/05_evaluate.py
 
 - Ji, Li, Xu, Hua, Ge, Tan, Zhang — *GenRec: Large Language Model for Generative Recommendation*, [arXiv:2307.00457](https://arxiv.org/abs/2307.00457) (the implemented paper).
 - Netflix Tech Blog — [*GenRec: Towards LLM-native recommendation at Netflix*](https://netflixtechblog.com/genrec-towards-llm-native-recommendation-at-netflix-f20be6f643e3) (related industry work on the same idea).
+- [recommenders-team/recommenders](https://github.com/recommenders-team/recommenders) — source of the SAR and BPR baselines (SAR: `recommenders.models.sar`; BPR: [Cornac](https://github.com/PreferredAI/cornac), the backend the library wraps). Rendle et al., *BPR: Bayesian Personalized Ranking from Implicit Feedback*, UAI 2009.

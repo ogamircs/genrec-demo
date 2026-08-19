@@ -9,7 +9,8 @@ genrec/models/
 *.ipynb
 *.pdf
 
-# caches
+# environments & caches
+.venv*/
 __pycache__/
 unsloth_compiled_cache/
 *.pyc

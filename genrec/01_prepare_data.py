@@ -51,8 +51,9 @@ def main() -> None:
     assert len(train) + len(test) == len(df)
     print(f"train interactions: {len(train)}, test items: {len(test)}")
 
-    train.drop(columns=["date"]).to_parquet(DATA / "train_interactions.parquet", index=False)
-    test.drop(columns=["date"]).to_parquet(DATA / "test_items.parquet", index=False)
+    # keep date: SAR-style models use timestamps for time-decayed affinity
+    train.to_parquet(DATA / "train_interactions.parquet", index=False)
+    test.to_parquet(DATA / "test_items.parquet", index=False)
 
     # Catalog of normalized names (from the full cohort data).
     catalog = df[["business_id", "business_name"]].drop_duplicates("business_id").copy()

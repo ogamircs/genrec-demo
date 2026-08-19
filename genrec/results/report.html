@@ -11,7 +11,8 @@
     --accent: #EB6834;        /* GenRec (validated vs both surfaces) */
     --accent-soft: #FBE3D7;
     --accent-text: #A64517;
-    --series: #2A78D6;        /* classic models (validated) */
+    --series: #2A78D6;        /* rating-based classics (validated) */
+    --series2: #1BAF7A;       /* recommenders-lib models (validated) */
     --code-bg: #F1EFE9;
   }
   @media (prefers-color-scheme: dark) {
@@ -27,6 +28,7 @@
       --accent-soft: #4A2C1C;
       --accent-text: #F09A6A;
       --series: #3987E5;
+      --series2: #199E70;
       --code-bg: #191B1F;
     }
   }
@@ -42,6 +44,7 @@
     --accent-soft: #4A2C1C;
     --accent-text: #F09A6A;
     --series: #3987E5;
+    --series2: #199E70;
     --code-bg: #191B1F;
   }
   * { box-sizing: border-box; }
@@ -101,6 +104,8 @@
   .track::before { content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 2px; background: var(--hairline); }
   .bar { position: absolute; left: 0; top: 1px; bottom: 1px; background: var(--series); border-radius: 0 4px 4px 0; min-width: 2px; }
   .bar.gen { background: var(--accent); }
+  .bar.rec { background: var(--series2); }
+  .tag.rec { background: var(--grid); color: var(--ink-2); }
   @media (prefers-reduced-motion: no-preference) {
     .bar { animation: grow .6s ease-out; transform-origin: left; }
     @keyframes grow { from { transform: scaleX(0); } }
@@ -186,80 +191,98 @@
     <h1>GenRec on Yelp</h1>
     <p class="standfirst">
       A 1B-parameter LLM, fine-tuned for 21 minutes to <em>generate the name of the next restaurant a user
-      will visit</em>, benchmarked against five classic recommenders on the same leave-one-out test.
-      <strong>GenRec takes the top-5 metrics; a plain popularity list still wins at depth&nbsp;10.</strong>
+      will visit</em>, benchmarked against seven classic recommenders on the same leave-one-out test.
+      <strong>GenRec beats every rating-prediction baseline at top-5 — but ranking-optimized CF (BPR, SAR,
+      from the recommenders-team library) tops the whole table.</strong>
     </p>
     <div class="tiles">
-      <div class="tile"><div class="num hot">0.0141</div><div class="lab">GenRec HR@5 — best of all six models, ~9× the best personalized classic</div></div>
+      <div class="tile"><div class="num">0.0428</div><div class="lab">BPR HR@10 — best overall; ranking-loss CF from the recommenders library</div></div>
+      <div class="tile"><div class="num hot">0.0141</div><div class="lab">GenRec HR@5 — 7–14× every rating-prediction classic, behind BPR &amp; SAR</div></div>
       <div class="tile"><div class="num">97.7%</div><div class="lab">of generated names are real businesses — no constrained decoding</div></div>
       <div class="tile"><div class="num">21 min</div><div class="lab">LoRA fine-tune of Llama-3.2-1B on an RTX 5070 Ti (30k examples)</div></div>
-      <div class="tile"><div class="num">1,988</div><div class="lab">test users, leave-one-out on each user's chronologically last visit</div></div>
     </div>
   </header>
 
   <section>
-    <h2>Next-item accuracy, six models</h2>
+    <h2>Next-item accuracy, eight models</h2>
     <p class="sub">Held-out last restaurant per user · matched at business-name level · catalog of 10,230 businesses</p>
     <div class="legend">
       <span><span class="swatch" style="background: var(--accent)"></span>GenRec (Llama-3.2-1B + LoRA)</span>
-      <span><span class="swatch" style="background: var(--series)"></span>Classic recommenders</span>
+      <span><span class="swatch" style="background: var(--series2)"></span>Ranking-optimized CF (recommenders lib)</span>
+      <span><span class="swatch" style="background: var(--series)"></span>Rating-based classics</span>
     </div>
     <div class="panels">
       <div class="panel">
         <h3>HR@5</h3><p class="cap">share of users whose next restaurant is in the top 5</p>
-        <div class="row"><span class="m">GenRec</span><span class="track"><span class="bar gen" style="width:92%"></span></span><span class="v mono">0.0141</span></div>
-        <div class="row"><span class="m">Popularity</span><span class="track"><span class="bar" style="width:72.4%"></span></span><span class="v mono">0.0111</span></div>
-        <div class="row"><span class="m">Rank-based</span><span class="track"><span class="bar" style="width:26.1%"></span></span><span class="v mono">0.0040</span></div>
-        <div class="row"><span class="m">Item-item KNN</span><span class="track"><span class="bar" style="width:9.8%"></span></span><span class="v mono">0.0015</span></div>
-        <div class="row"><span class="m">SVD</span><span class="track"><span class="bar" style="width:6.5%"></span></span><span class="v mono">0.0010</span></div>
+        <div class="row"><span class="m">BPR</span><span class="track"><span class="bar rec" style="width:92%"></span></span><span class="v mono">0.0241</span></div>
+        <div class="row"><span class="m">SAR</span><span class="track"><span class="bar rec" style="width:71%"></span></span><span class="v mono">0.0186</span></div>
+        <div class="row"><span class="m">GenRec</span><span class="track"><span class="bar gen" style="width:53.8%"></span></span><span class="v mono">0.0141</span></div>
+        <div class="row"><span class="m">Popularity</span><span class="track"><span class="bar" style="width:42.4%"></span></span><span class="v mono">0.0111</span></div>
+        <div class="row"><span class="m">Rank-based</span><span class="track"><span class="bar" style="width:15.4%"></span></span><span class="v mono">0.0040</span></div>
+        <div class="row"><span class="m">Item-item KNN</span><span class="track"><span class="bar" style="width:5.8%"></span></span><span class="v mono">0.0015</span></div>
+        <div class="row"><span class="m">SVD</span><span class="track"><span class="bar" style="width:3.8%"></span></span><span class="v mono">0.0010</span></div>
         <div class="row"><span class="m">User-user KNN</span><span class="track"><span class="bar" style="width:0%"></span></span><span class="v mono">0.0000</span></div>
       </div>
       <div class="panel">
         <h3>NDCG@5</h3><p class="cap">position-weighted accuracy in the top 5</p>
-        <div class="row"><span class="m">GenRec</span><span class="track"><span class="bar gen" style="width:92%"></span></span><span class="v mono">0.0092</span></div>
-        <div class="row"><span class="m">Popularity</span><span class="track"><span class="bar" style="width:63%"></span></span><span class="v mono">0.0063</span></div>
-        <div class="row"><span class="m">Rank-based</span><span class="track"><span class="bar" style="width:28%"></span></span><span class="v mono">0.0028</span></div>
-        <div class="row"><span class="m">Item-item KNN</span><span class="track"><span class="bar" style="width:8%"></span></span><span class="v mono">0.0008</span></div>
-        <div class="row"><span class="m">SVD</span><span class="track"><span class="bar" style="width:5%"></span></span><span class="v mono">0.0005</span></div>
+        <div class="row"><span class="m">BPR</span><span class="track"><span class="bar rec" style="width:92%"></span></span><span class="v mono">0.0148</span></div>
+        <div class="row"><span class="m">SAR</span><span class="track"><span class="bar rec" style="width:74%"></span></span><span class="v mono">0.0119</span></div>
+        <div class="row"><span class="m">GenRec</span><span class="track"><span class="bar gen" style="width:57.4%"></span></span><span class="v mono">0.0092</span></div>
+        <div class="row"><span class="m">Popularity</span><span class="track"><span class="bar" style="width:39.1%"></span></span><span class="v mono">0.0063</span></div>
+        <div class="row"><span class="m">Rank-based</span><span class="track"><span class="bar" style="width:17.6%"></span></span><span class="v mono">0.0028</span></div>
+        <div class="row"><span class="m">Item-item KNN</span><span class="track"><span class="bar" style="width:4.7%"></span></span><span class="v mono">0.0008</span></div>
+        <div class="row"><span class="m">SVD</span><span class="track"><span class="bar" style="width:3.3%"></span></span><span class="v mono">0.0005</span></div>
         <div class="row"><span class="m">User-user KNN</span><span class="track"><span class="bar" style="width:0%"></span></span><span class="v mono">0.0000</span></div>
       </div>
       <div class="panel">
         <h3>HR@10</h3><p class="cap">share of users whose next restaurant is in the top 10</p>
-        <div class="row"><span class="m">GenRec</span><span class="track"><span class="bar gen" style="width:56.8%"></span></span><span class="v mono">0.0171</span></div>
-        <div class="row"><span class="m">Popularity</span><span class="track"><span class="bar" style="width:92%"></span></span><span class="v mono">0.0277</span></div>
-        <div class="row"><span class="m">Rank-based</span><span class="track"><span class="bar" style="width:24.9%"></span></span><span class="v mono">0.0075</span></div>
-        <div class="row"><span class="m">Item-item KNN</span><span class="track"><span class="bar" style="width:5%"></span></span><span class="v mono">0.0015</span></div>
-        <div class="row"><span class="m">SVD</span><span class="track"><span class="bar" style="width:6.6%"></span></span><span class="v mono">0.0020</span></div>
-        <div class="row"><span class="m">User-user KNN</span><span class="track"><span class="bar" style="width:5%"></span></span><span class="v mono">0.0015</span></div>
+        <div class="row"><span class="m">BPR</span><span class="track"><span class="bar rec" style="width:92%"></span></span><span class="v mono">0.0428</span></div>
+        <div class="row"><span class="m">SAR</span><span class="track"><span class="bar rec" style="width:67.1%"></span></span><span class="v mono">0.0312</span></div>
+        <div class="row"><span class="m">GenRec</span><span class="track"><span class="bar gen" style="width:36.8%"></span></span><span class="v mono">0.0171</span></div>
+        <div class="row"><span class="m">Popularity</span><span class="track"><span class="bar" style="width:59.5%"></span></span><span class="v mono">0.0277</span></div>
+        <div class="row"><span class="m">Rank-based</span><span class="track"><span class="bar" style="width:16.2%"></span></span><span class="v mono">0.0075</span></div>
+        <div class="row"><span class="m">Item-item KNN</span><span class="track"><span class="bar" style="width:3.2%"></span></span><span class="v mono">0.0015</span></div>
+        <div class="row"><span class="m">SVD</span><span class="track"><span class="bar" style="width:4.3%"></span></span><span class="v mono">0.0020</span></div>
+        <div class="row"><span class="m">User-user KNN</span><span class="track"><span class="bar" style="width:3.2%"></span></span><span class="v mono">0.0015</span></div>
       </div>
       <div class="panel">
         <h3>NDCG@10</h3><p class="cap">position-weighted accuracy in the top 10</p>
-        <div class="row"><span class="m">GenRec</span><span class="track"><span class="bar gen" style="width:80.9%"></span></span><span class="v mono">0.0102</span></div>
-        <div class="row"><span class="m">Popularity</span><span class="track"><span class="bar" style="width:92%"></span></span><span class="v mono">0.0116</span></div>
-        <div class="row"><span class="m">Rank-based</span><span class="track"><span class="bar" style="width:31.7%"></span></span><span class="v mono">0.0040</span></div>
-        <div class="row"><span class="m">Item-item KNN</span><span class="track"><span class="bar" style="width:6.3%"></span></span><span class="v mono">0.0008</span></div>
-        <div class="row"><span class="m">SVD</span><span class="track"><span class="bar" style="width:7.1%"></span></span><span class="v mono">0.0009</span></div>
-        <div class="row"><span class="m">User-user KNN</span><span class="track"><span class="bar" style="width:4%"></span></span><span class="v mono">0.0005</span></div>
+        <div class="row"><span class="m">BPR</span><span class="track"><span class="bar rec" style="width:92%"></span></span><span class="v mono">0.0208</span></div>
+        <div class="row"><span class="m">SAR</span><span class="track"><span class="bar rec" style="width:70%"></span></span><span class="v mono">0.0159</span></div>
+        <div class="row"><span class="m">GenRec</span><span class="track"><span class="bar gen" style="width:45%"></span></span><span class="v mono">0.0102</span></div>
+        <div class="row"><span class="m">Popularity</span><span class="track"><span class="bar" style="width:51.1%"></span></span><span class="v mono">0.0116</span></div>
+        <div class="row"><span class="m">Rank-based</span><span class="track"><span class="bar" style="width:17.5%"></span></span><span class="v mono">0.0040</span></div>
+        <div class="row"><span class="m">Item-item KNN</span><span class="track"><span class="bar" style="width:3.3%"></span></span><span class="v mono">0.0008</span></div>
+        <div class="row"><span class="m">SVD</span><span class="track"><span class="bar" style="width:3.8%"></span></span><span class="v mono">0.0009</span></div>
+        <div class="row"><span class="m">User-user KNN</span><span class="track"><span class="bar" style="width:2%"></span></span><span class="v mono">0.0005</span></div>
       </div>
     </div>
   </section>
 
   <section>
     <h2>Full results</h2>
-    <p class="sub">Bold = column winner. All metrics on the same 1,988 held-out items.</p>
+    <p class="sub">Bold = column winner. All metrics on the same 1,988 held-out items. With one relevant item per user,
+      Recall@10 = HR@10 and Precision@10 = HR@10 / 10; F1@10 is averaged per user.</p>
     <div class="tscroll">
       <table>
-        <thead><tr><th>Model</th><th>HR@5</th><th>NDCG@5</th><th>HR@10</th><th>NDCG@10</th></tr></thead>
+        <thead><tr><th>Model</th><th>HR@5</th><th>NDCG@5</th><th>HR@10</th><th>NDCG@10</th><th>P@10</th><th>R@10</th><th>F1@10</th></tr></thead>
         <tbody>
-          <tr class="genrec"><td>GenRec (Llama-3.2-1B + LoRA)</td><td class="win">0.0141</td><td class="win">0.0092</td><td>0.0171</td><td>0.0102</td></tr>
-          <tr><td>Popularity (most-rated)</td><td>0.0111</td><td>0.0063</td><td class="win">0.0277</td><td class="win">0.0116</td></tr>
-          <tr><td>Rank-based (avg rating)</td><td>0.0040</td><td>0.0028</td><td>0.0075</td><td>0.0040</td></tr>
-          <tr><td>Item-item KNN (msd, k=30)</td><td>0.0015</td><td>0.0008</td><td>0.0015</td><td>0.0008</td></tr>
-          <tr><td>SVD / matrix factorization (tuned)</td><td>0.0010</td><td>0.0005</td><td>0.0020</td><td>0.0009</td></tr>
-          <tr><td>User-user KNN (cosine, k=40)</td><td>0.0000</td><td>0.0000</td><td>0.0015</td><td>0.0005</td></tr>
+          <tr><td>BPR (Cornac via recommenders)</td><td class="win">0.0241</td><td class="win">0.0148</td><td class="win">0.0428</td><td class="win">0.0208</td><td class="win">0.0043</td><td class="win">0.0428</td><td class="win">0.0078</td></tr>
+          <tr><td>SAR (recommenders-team lib)</td><td>0.0186</td><td>0.0119</td><td>0.0312</td><td>0.0159</td><td>0.0031</td><td>0.0312</td><td>0.0057</td></tr>
+          <tr class="genrec"><td>GenRec (Llama-3.2-1B + LoRA)</td><td>0.0141</td><td>0.0092</td><td>0.0171</td><td>0.0102</td><td>0.0017</td><td>0.0171</td><td>0.0031</td></tr>
+          <tr><td>Popularity (most-rated)</td><td>0.0111</td><td>0.0063</td><td>0.0277</td><td>0.0116</td><td>0.0028</td><td>0.0277</td><td>0.0050</td></tr>
+          <tr><td>Rank-based (avg rating)</td><td>0.0040</td><td>0.0028</td><td>0.0075</td><td>0.0040</td><td>0.0008</td><td>0.0075</td><td>0.0014</td></tr>
+          <tr><td>Item-item KNN (msd, k=30)</td><td>0.0015</td><td>0.0008</td><td>0.0015</td><td>0.0008</td><td>0.0002</td><td>0.0015</td><td>0.0003</td></tr>
+          <tr><td>SVD / matrix factorization (tuned)</td><td>0.0010</td><td>0.0005</td><td>0.0020</td><td>0.0009</td><td>0.0002</td><td>0.0020</td><td>0.0004</td></tr>
+          <tr><td>User-user KNN (cosine, k=40)</td><td>0.0000</td><td>0.0000</td><td>0.0015</td><td>0.0005</td><td>0.0002</td><td>0.0015</td><td>0.0003</td></tr>
         </tbody>
       </table>
     </div>
+    <p style="color: var(--ink-2); max-width: 70ch; font-size: 14.5px;">
+      SAR and BPR come from the <a href="https://github.com/recommenders-team/recommenders">recommenders-team library</a>
+      (SAR via <code>recommenders.models.sar</code>; BPR via Cornac, the backend that library wraps) — run through the
+      actual library, not reimplemented.
+    </p>
   </section>
 
   <section>
@@ -363,7 +386,7 @@
 
   <section>
     <h2>Methodologies tested</h2>
-    <p class="sub">Six recommenders, one shared protocol: train on everything before each user's last visit, predict that visit</p>
+    <p class="sub">Eight recommenders, one shared protocol: train on everything before each user's last visit, predict that visit</p>
     <div class="method">
       <div class="mcard"><b class="k">GenRec <span class="tag llm">LLM · generative</span></b>
         Ji et al., arXiv 2307.00457. <strong>Llama-3.2-1B-Instruct</strong>, 4-bit QLoRA via unsloth (r=16, &alpha;=32, all attention+MLP projections).
@@ -386,6 +409,14 @@
         Biased matrix factorization (&mu; + b<sub>u</sub> + b<sub>i</sub> + q<sub>i</sub>&middot;p<sub>u</sub>), 100 factors,
         SGD with tuned n_epochs=20, lr=0.01, reg=0.2. Best rating predictor of the three
         (RMSE 0.93) — and still near the bottom at next-item retrieval.</div>
+      <div class="mcard"><b class="k">SAR <span class="tag rec">recommenders lib</span></b>
+        Smart Adaptive Recommendations from <code>recommenders.models.sar</code>: Jaccard item co-occurrence
+        similarity &times; time-decayed user affinity (30-day decay on review timestamps),
+        <code>recommend_k_items</code> with seen-item removal. Fits in 3 s.</div>
+      <div class="mcard"><b class="k">BPR <span class="tag rec">recommenders lib</span></b>
+        Bayesian Personalized Ranking (Rendle et al. 2009) via Cornac, the backend the recommenders
+        library wraps: implicit-feedback MF with a pairwise ranking loss — k=100, 200 iters, lr 0.01,
+        reg 0.001, seed 42. <strong>Best model in the table on every metric.</strong></div>
     </div>
     <p style="color: var(--ink-2); max-width: 70ch; font-size: 14.5px;">
       <strong>Why numpy and not scikit-surprise:</strong> surprise ships source-only and this machine has no C compiler.
@@ -412,8 +443,8 @@
   <section>
     <h2>What the numbers say</h2>
     <div class="findings" style="margin-top: 16px;">
-      <p><strong>GenRec wins where ranking quality matters.</strong> Best HR@5 and NDCG@5 of all six models — when it finds the right restaurant it puts it near the top, beating every personalized classic model by 7–14&times; at HR@5.</p>
-      <p><strong>Popularity is still a strong retriever at depth 10.</strong> Yelp restaurant visits are only weakly sequential, and GenRec's deduped beam lists average 8.9 names against the classics' full 10 — more beams would close part of that gap.</p>
+      <p><strong>Ranking-optimized CF wins overall.</strong> BPR and SAR — the two additions from the recommenders-team library — top every metric. Models trained to <em>rank</em> beat models trained to predict ratings by an order of magnitude at top-N, and on this sparse, weakly-sequential data they beat the 1B LLM too.</p>
+      <p><strong>GenRec beats every rating-prediction baseline.</strong> 7–14&times; the personalized rating predictors at HR@5, with the right restaurant placed near the top when found — but it trails BPR and SAR, and at depth 10 also popularity: Yelp visits are weakly sequential, and GenRec's deduped beam lists average 8.9 names against the others' full 10.</p>
       <p><strong>Rating predictors are poor top-N retrievers.</strong> KNN and SVD predict ratings well (RMSE 0.93–0.99) yet almost never surface the next-visited restaurant. Optimizing squared error rewards obscure items with a few perfect ratings.</p>
       <p><strong>The LLM internalized the catalog.</strong> 97.7% of freely generated names are real businesses, and the hit/miss examples show it exploiting name semantics — yogurt shops for yogurt fans, sushi for sushi regulars — exactly the paper's motivation for names over IDs.</p>
       <p><strong>Consistent with the paper.</strong> GenRec reported HR@10 = 0.025 on sparse Amazon Toys — where it also lost to its baseline — versus 0.131 on dense MovieLens, where it won. This Yelp result sits squarely in the sparse-data pattern.</p>
@@ -436,6 +467,7 @@
 python genrec/02_classic_baselines.py  # classic baselines + sanity check
 python genrec/03_genrec_train.py       # ~21 min on RTX 5070 Ti
 python genrec/04_genrec_infer.py       # ~4 min, 10-beam generation
+python genrec/06_recommenders_baselines.py  # SAR + BPR (py3.11 venv, see README)
 python genrec/05_evaluate.py           # final table</code></pre>
   </section>
 
