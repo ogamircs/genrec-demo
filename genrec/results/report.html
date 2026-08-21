@@ -13,6 +13,9 @@
     --accent-text: #A64517;
     --series: #2A78D6;        /* rating-based classics (validated) */
     --series2: #1BAF7A;       /* recommenders-lib models (validated) */
+    --series3: #7C5CD6;       /* DeepFM (deep CTR) */
+    --series4: #C2517E;       /* Wide & Deep (deep CTR) */
+    --series5: #0E8F9E;       /* PinSage (graph GCN) */
     --code-bg: #F1EFE9;
   }
   @media (prefers-color-scheme: dark) {
@@ -29,6 +32,9 @@
       --accent-text: #F09A6A;
       --series: #3987E5;
       --series2: #199E70;
+      --series3: #8E72E0;
+      --series4: #D46C95;
+      --series5: #2AAFC0;
       --code-bg: #191B1F;
     }
   }
@@ -45,6 +51,9 @@
     --accent-text: #F09A6A;
     --series: #3987E5;
     --series2: #199E70;
+    --series3: #8E72E0;
+    --series4: #D46C95;
+    --series5: #2AAFC0;
     --code-bg: #191B1F;
   }
   * { box-sizing: border-box; }
@@ -105,7 +114,11 @@
   .bar { position: absolute; left: 0; top: 1px; bottom: 1px; background: var(--series); border-radius: 0 4px 4px 0; min-width: 2px; }
   .bar.gen { background: var(--accent); }
   .bar.rec { background: var(--series2); }
+  .bar.dfm { background: var(--series3); }
+  .bar.wd { background: var(--series4); }
+  .bar.gnn { background: var(--series5); }
   .tag.rec { background: var(--grid); color: var(--ink-2); }
+  .tag.dl { background: var(--grid); color: var(--ink-2); }
   @media (prefers-reduced-motion: no-preference) {
     .bar { animation: grow .6s ease-out; transform-origin: left; }
     @keyframes grow { from { transform: scaleX(0); } }
@@ -191,14 +204,15 @@
     <h1>GenRec on Yelp</h1>
     <p class="standfirst">
       An LLM fine-tuned to <em>generate the name of the next restaurant a user will visit</em>, benchmarked
-      against seven classic recommenders on the same leave-one-out test — then scaled up (3B, all 98k training
+      against ten other recommenders on the same leave-one-out test — then scaled up (3B, all 98k training
       windows, catalog-constrained 20-beam decoding) to see how far it could climb.
-      <strong>The upgrades bought +56% HR@10; ranking-optimized CF (BPR, SAR, from the recommenders-team
-      library) still tops the table.</strong>
+      <strong>The upgrades bought +56% HR@10; ranking-optimized CF still tops the table &mdash; ahead of
+      both deep-CTR baselines, which tie each other.</strong>
     </p>
     <div class="tiles">
-      <div class="tile"><div class="num">0.0428</div><div class="lab">BPR HR@10 — best overall; ranking-loss CF from the recommenders library</div></div>
+      <div class="tile"><div class="num">0.0459</div><div class="lab">BPR HR@10 (6-seed mean) — best overall; a shallow MF with a pairwise ranking loss</div></div>
       <div class="tile"><div class="num hot">0.0267</div><div class="lab">GenRec v2 HR@10 — up 56% over v1; NDCG@10 now beats popularity</div></div>
+      <div class="tile"><div class="num">0.0375</div><div class="lab">DeepFM HR@10 (6-seed mean) — second; Wide &amp; Deep ties it at 0.0370</div></div>
       <div class="tile"><div class="num">100%</div><div class="lab">of v2 generations are real businesses — beams constrained to a catalog trie</div></div>
       <div class="tile"><div class="num">4.3 h</div><div class="lab">QLoRA fine-tune of Llama-3.2-3B, 98k examples × 3 epochs (RTX 5070 Ti)</div></div>
     </div>
@@ -211,6 +225,9 @@
     <div class="legend">
       <span><span class="swatch" style="background: var(--accent)"></span>GenRec (LLM)</span>
       <span><span class="swatch" style="background: var(--series2)"></span>Ranking-optimized CF (recommenders lib)</span>
+      <span><span class="swatch" style="background: var(--series3)"></span>DeepFM</span>
+      <span><span class="swatch" style="background: var(--series4)"></span>Wide &amp; Deep</span>
+      <span><span class="swatch" style="background: var(--series5)"></span>PinSage (graph)</span>
       <span><span class="swatch" style="background: var(--series)"></span>Rating-based classics</span>
     </div>
     <div class="panels">
@@ -218,6 +235,9 @@
         <h3>HR@5</h3><p class="cap">share of users whose next restaurant is in the top 5</p>
         <div class="row"><span class="m">BPR</span><span class="track"><span class="bar rec" style="width:92%"></span></span><span class="v mono">0.0241</span></div>
         <div class="row"><span class="m">SAR</span><span class="track"><span class="bar rec" style="width:71%"></span></span><span class="v mono">0.0186</span></div>
+        <div class="row"><span class="m">PinSage</span><span class="track"><span class="bar gnn" style="width:65.3%"></span></span><span class="v mono">0.0171</span></div>
+        <div class="row"><span class="m">DeepFM</span><span class="track"><span class="bar dfm" style="width:86.3%"></span></span><span class="v mono">0.0226</span></div>
+        <div class="row"><span class="m">Wide &amp; Deep</span><span class="track"><span class="bar wd" style="width:78.6%"></span></span><span class="v mono">0.0206</span></div>
         <div class="row"><span class="m">GenRec v1</span><span class="track"><span class="bar gen" style="width:53.8%"></span></span><span class="v mono">0.0141</span></div>
         <div class="row"><span class="m">GenRec v2</span><span class="track"><span class="bar gen" style="width:46.2%"></span></span><span class="v mono">0.0121</span></div>
         <div class="row"><span class="m">Popularity</span><span class="track"><span class="bar" style="width:42.4%"></span></span><span class="v mono">0.0111</span></div>
@@ -230,6 +250,9 @@
         <h3>NDCG@5</h3><p class="cap">position-weighted accuracy in the top 5</p>
         <div class="row"><span class="m">BPR</span><span class="track"><span class="bar rec" style="width:92%"></span></span><span class="v mono">0.0148</span></div>
         <div class="row"><span class="m">SAR</span><span class="track"><span class="bar rec" style="width:74%"></span></span><span class="v mono">0.0119</span></div>
+        <div class="row"><span class="m">PinSage</span><span class="track"><span class="bar gnn" style="width:65.9%"></span></span><span class="v mono">0.0106</span></div>
+        <div class="row"><span class="m">DeepFM</span><span class="track"><span class="bar dfm" style="width:84.5%"></span></span><span class="v mono">0.0136</span></div>
+        <div class="row"><span class="m">Wide &amp; Deep</span><span class="track"><span class="bar wd" style="width:74%"></span></span><span class="v mono">0.0119</span></div>
         <div class="row"><span class="m">GenRec v1</span><span class="track"><span class="bar gen" style="width:57.4%"></span></span><span class="v mono">0.0092</span></div>
         <div class="row"><span class="m">GenRec v2</span><span class="track"><span class="bar gen" style="width:49.1%"></span></span><span class="v mono">0.0079</span></div>
         <div class="row"><span class="m">Popularity</span><span class="track"><span class="bar" style="width:39.1%"></span></span><span class="v mono">0.0063</span></div>
@@ -241,7 +264,10 @@
       <div class="panel">
         <h3>HR@10</h3><p class="cap">share of users whose next restaurant is in the top 10</p>
         <div class="row"><span class="m">BPR</span><span class="track"><span class="bar rec" style="width:92%"></span></span><span class="v mono">0.0428</span></div>
+        <div class="row"><span class="m">DeepFM</span><span class="track"><span class="bar dfm" style="width:85.4%"></span></span><span class="v mono">0.0397</span></div>
+        <div class="row"><span class="m">Wide &amp; Deep</span><span class="track"><span class="bar wd" style="width:83.2%"></span></span><span class="v mono">0.0387</span></div>
         <div class="row"><span class="m">SAR</span><span class="track"><span class="bar rec" style="width:67.1%"></span></span><span class="v mono">0.0312</span></div>
+        <div class="row"><span class="m">PinSage</span><span class="track"><span class="bar gnn" style="width:60.6%"></span></span><span class="v mono">0.0282</span></div>
         <div class="row"><span class="m">GenRec v2</span><span class="track"><span class="bar gen" style="width:57.4%"></span></span><span class="v mono">0.0267</span></div>
         <div class="row"><span class="m">GenRec v1</span><span class="track"><span class="bar gen" style="width:36.8%"></span></span><span class="v mono">0.0171</span></div>
         <div class="row"><span class="m">Popularity</span><span class="track"><span class="bar" style="width:59.5%"></span></span><span class="v mono">0.0277</span></div>
@@ -253,7 +279,10 @@
       <div class="panel">
         <h3>NDCG@10</h3><p class="cap">position-weighted accuracy in the top 10</p>
         <div class="row"><span class="m">BPR</span><span class="track"><span class="bar rec" style="width:92%"></span></span><span class="v mono">0.0208</span></div>
+        <div class="row"><span class="m">DeepFM</span><span class="track"><span class="bar dfm" style="width:84%"></span></span><span class="v mono">0.0190</span></div>
+        <div class="row"><span class="m">Wide &amp; Deep</span><span class="track"><span class="bar wd" style="width:78.7%"></span></span><span class="v mono">0.0178</span></div>
         <div class="row"><span class="m">SAR</span><span class="track"><span class="bar rec" style="width:70%"></span></span><span class="v mono">0.0159</span></div>
+        <div class="row"><span class="m">PinSage</span><span class="track"><span class="bar gnn" style="width:62.4%"></span></span><span class="v mono">0.0141</span></div>
         <div class="row"><span class="m">GenRec v2</span><span class="track"><span class="bar gen" style="width:54.7%"></span></span><span class="v mono">0.0124</span></div>
         <div class="row"><span class="m">GenRec v1</span><span class="track"><span class="bar gen" style="width:45%"></span></span><span class="v mono">0.0102</span></div>
         <div class="row"><span class="m">Popularity</span><span class="track"><span class="bar" style="width:51.1%"></span></span><span class="v mono">0.0116</span></div>
@@ -274,7 +303,10 @@
         <thead><tr><th>Model</th><th>HR@5</th><th>NDCG@5</th><th>HR@10</th><th>NDCG@10</th><th>P@10</th><th>R@10</th><th>F1@10</th></tr></thead>
         <tbody>
           <tr><td>BPR (Cornac via recommenders)</td><td class="win">0.0241</td><td class="win">0.0148</td><td class="win">0.0428</td><td class="win">0.0208</td><td class="win">0.0043</td><td class="win">0.0428</td><td class="win">0.0078</td></tr>
+          <tr><td>DeepFM (torch, FM + deep MLP)</td><td>0.0226</td><td>0.0136</td><td>0.0397</td><td>0.0190</td><td>0.0040</td><td>0.0397</td><td>0.0072</td></tr>
+          <tr><td>Wide &amp; Deep (torch, crosses + MLP)</td><td>0.0206</td><td>0.0119</td><td>0.0387</td><td>0.0178</td><td>0.0039</td><td>0.0387</td><td>0.0070</td></tr>
           <tr><td>SAR (recommenders-team lib)</td><td>0.0186</td><td>0.0119</td><td>0.0312</td><td>0.0159</td><td>0.0031</td><td>0.0312</td><td>0.0057</td></tr>
+          <tr><td>PinSage (GCN, importance pooling)</td><td>0.0171</td><td>0.0106</td><td>0.0282</td><td>0.0141</td><td>0.0028</td><td>0.0282</td><td>0.0051</td></tr>
           <tr><td>Popularity (most-rated)</td><td>0.0111</td><td>0.0063</td><td>0.0277</td><td>0.0116</td><td>0.0028</td><td>0.0277</td><td>0.0050</td></tr>
           <tr class="genrec"><td>GenRec v2 (3B full, constrained 20 beams)</td><td>0.0121</td><td>0.0079</td><td>0.0267</td><td>0.0124</td><td>0.0027</td><td>0.0267</td><td>0.0048</td></tr>
           <tr><td>GenRec v3 (v2 + seen-excluded trie)</td><td>0.0121</td><td>0.0080</td><td>0.0262</td><td>0.0123</td><td>0.0026</td><td>0.0262</td><td>0.0048</td></tr>
@@ -290,7 +322,30 @@
     <p style="color: var(--ink-2); max-width: 70ch; font-size: 14.5px;">
       SAR and BPR come from the <a href="https://github.com/recommenders-team/recommenders">recommenders-team library</a>
       (SAR via <code>recommenders.models.sar</code>; BPR via Cornac, the backend that library wraps) — run through the
-      actual library, not reimplemented.
+      actual library, not reimplemented. DeepFM (<a href="https://arxiv.org/abs/1703.04247">Guo et al. 2017</a>) and
+      Wide &amp; Deep (<a href="https://arxiv.org/abs/1606.07792">Cheng et al. 2016</a>) are PyTorch implementations,
+      tuned identically on an internal validation split that never touches the test items.
+    </p>
+
+    <h3 style="font-size: 17px; margin: 34px 0 4px; font-family: Charter, Cambria, Georgia, serif;">Seed stability — read the table with error bars</h3>
+    <p class="sub">Four of these models are stochastic (random init + sampled negatives). Re-running each under its
+      <em>full</em> protocol — re-selecting the epoch count on the validation split every time — over 6 seeds:</p>
+    <div class="tscroll">
+      <table>
+        <thead><tr><th>Model</th><th>table row (seed 42)</th><th>mean HR@10 ± sd</th><th>range</th><th>mean hits @10</th></tr></thead>
+        <tbody>
+          <tr><td>BPR (Cornac via recommenders)</td><td>0.0428</td><td class="win">0.0459 ± 0.0027</td><td>0.0423 – 0.0488</td><td>91 / 1,988</td></tr>
+          <tr><td>DeepFM (torch)</td><td>0.0397</td><td>0.0375 ± 0.0014</td><td>0.0352 – 0.0397</td><td>75 / 1,988</td></tr>
+          <tr><td>Wide &amp; Deep (torch)</td><td>0.0387</td><td>0.0370 ± 0.0016</td><td>0.0352 – 0.0387</td><td>74 / 1,988</td></tr>
+          <tr><td>PinSage (torch)</td><td>0.0282</td><td>0.0253 ± 0.0035</td><td>0.0201 – 0.0292</td><td>50 / 1,988</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p style="color: var(--ink-2); max-width: 70ch; font-size: 14.5px;">
+      The committed seed-42 run happens to be BPR's <em>worst</em> and close to the neural models' <em>best</em>, so the
+      single-run table above <strong>understates</strong> BPR's lead: on means it is 91 hits vs 75, not 85 vs 79.
+      DeepFM and Wide &amp; Deep are one hit apart with overlapping ranges — a tie. PinSage has the widest spread of the four (its sparse aggregation accumulates gradients with non-deterministic float atomics, so even a fixed seed varies) and its committed row flatters it too: on means it is level with popularity, 50 hits vs 55. Every other model in the table is
+      deterministic given the data.
     </p>
   </section>
 
@@ -394,7 +449,7 @@
 
   <section>
     <h2>Methodologies tested</h2>
-    <p class="sub">Eight recommenders, one shared protocol: train on everything before each user's last visit, predict that visit</p>
+    <p class="sub">Eleven recommenders, one shared protocol: train on everything before each user's last visit, predict that visit</p>
     <div class="method">
       <div class="mcard"><b class="k">GenRec <span class="tag llm">LLM · generative</span></b>
         Ji et al., arXiv 2307.00457. 4-bit QLoRA via unsloth (r=16, &alpha;=32, all attention+MLP projections);
@@ -426,6 +481,28 @@
         Bayesian Personalized Ranking (Rendle et al. 2009) via Cornac, the backend the recommenders
         library wraps: implicit-feedback MF with a pairwise ranking loss — k=100, 200 iters, lr 0.01,
         reg 0.001, seed 42. <strong>Best model in the table on every metric.</strong></div>
+      <div class="mcard"><b class="k">DeepFM <span class="tag dl">deep CTR</span></b>
+        Guo et al., arXiv 1703.04247, in PyTorch: an FM component (order-1 + all pairwise interactions) and a
+        128&rarr;64 MLP <strong>sharing one embedding table</strong> over 6 categorical fields — user/item ids plus
+        log-bucketed activity, popularity and average-rating fields. Implicit feedback, 8 uniform negatives per
+        positive, binary cross-entropy. Dim/negatives/dropout chosen by an 18-config grid on a validation split
+        (each user's last <em>training</em> visit); it picked dim 16, 16 negatives, no dropout.
+        <strong>Second overall</strong> — ~1 min to train.</div>
+      <div class="mcard"><b class="k">Wide &amp; Deep <span class="tag dl">deep CTR</span></b>
+        Cheng et al., arXiv 1606.07792 — the architecture DeepFM was written to improve on. A linear <strong>wide</strong>
+        model over the raw fields plus four <strong>hand-built cross-products</strong> (user&times;item-popularity,
+        user&times;item-rating, activity&times;popularity, rating&times;rating) for memorization, jointly trained with a
+        separately-embedded MLP for generalization. Same fields, negatives, loss and grid as DeepFM.
+        <strong>Ties DeepFM</strong> — the FM component buys nothing at 6 fields.</div>
+      <div class="mcard"><b class="k">PinSage <span class="tag dl">graph GCN</span></b>
+        Ying et al., arXiv 1806.01973 &mdash; the GCN deployed at Pinterest, here over the bipartite
+        user/business graph. Neighbourhoods are the top-50 businesses by L1-normalized visit count of random
+        walks with restart (Personalized PageRank in the limit), aggregated by <strong>importance pooling</strong>
+        (a weighted mean over those counts); two convolutional layers, then the paper's
+        G<sub>2</sub>&middot;ReLU(G<sub>1</sub>h+g) head. Max-margin ranking loss, 500 negatives shared per
+        minibatch, plus curriculum hard negatives from a PPR rank band. The only model here with
+        <strong>no item-ID parameters</strong> &mdash; a business is its content features plus its graph position.
+        <strong>Mid-table on accuracy, first on coverage.</strong></div>
     </div>
     <p style="color: var(--ink-2); max-width: 70ch; font-size: 14.5px;">
       <strong>Why numpy and not scikit-surprise:</strong> surprise ships source-only and this machine has no C compiler.
@@ -452,7 +529,11 @@
   <section>
     <h2>What the numbers say</h2>
     <div class="findings" style="margin-top: 16px;">
-      <p><strong>Ranking-optimized CF wins overall.</strong> BPR and SAR — the two additions from the recommenders-team library — top every metric even after GenRec's upgrades. Models trained to <em>rank</em> beat models trained to predict ratings by an order of magnitude at top-N, and on this sparse, weakly-sequential data they beat the LLM too.</p>
+      <p><strong>Ranking-optimized CF wins overall.</strong> BPR tops every metric even after GenRec's upgrades. Models trained to <em>rank</em> beat models trained to predict ratings by an order of magnitude at top-N, and on this sparse, weakly-sequential data they beat the LLM too.</p>
+      <p><strong>Deep learning did not beat the objective.</strong> DeepFM and Wide &amp; Deep — both with MLPs, six feature fields and identical grid searches — finish second and third, comfortably ahead of SAR (75 and 74 mean hits vs 62) and popularity, and ~18% behind plain BPR (91 mean hits). BPR has no neural network at all; what it has is a <em>pairwise ranking loss</em>, while both deep models optimize pointwise classification over sampled negatives. Architecture lost to objective.</p>
+      <p><strong>PinSage reproduces four of its five ablation rungs &mdash; but not the headline.</strong> Running the paper's own Table 1 ladder on this data (3 seeds each, test HR@10): mean-pooling-xent 0.0148 (worst, as published), max-pooling 0.0221, mean-pooling 0.0258, mean-pooling-hard 0.0262 &mdash; the published order. Importance pooling, the paper's 46% &rarr; 67% jump, gives 0.0260: nothing. The rest of the sweep says why. Across an 18-config grid at 3 seeds, only the margin &delta; clears the noise floor (0.1 &gt; 0.3 &gt; 0.5 in all six dim &times; T cells); T, embedding size, the hard-negative band and even random-walk fidelity (55% &rarr; 83% agreement with exact Personalized PageRank) all land inside run-to-run variance. Weighting a neighbourhood pays when it is a 50-item sample of three billion &mdash; a 2-hop expansion of a 10,165-item catalog already reaches ~9,700 of them, so there is nothing left to weight.</p>
+      <p><strong>Accuracy is not the only axis.</strong> PinSage recommends <strong>1,934 distinct businesses</strong> across the 1,988 lists, against BPR's 784, DeepFM's 678 and popularity's 31; its most-recommended item appears in 13.8% of lists against BPR's 38.1% and popularity's 88.6%. With no ID parameters it can only rank by content and graph position, and its neighbour structure holds up on inspection (Pizzeria Bianco &rarr; La Grande Orange Pizzeria, Cibo, True Food Kitchen). That is precisely the profile that loses an HR@10 contest whose hits concentrate in popular restaurants &mdash; and the least popularity-biased catalogue coverage in the benchmark.</p>
+      <p><strong>The two deep architectures are indistinguishable.</strong> DeepFM's selling point over Wide &amp; Deep is replacing hand-built cross features with an FM term that learns every pairwise interaction automatically. Here that is worth one hit out of 1,988. With only six fields — two of them carrying the real signal — four hand-picked crosses cover the same ground; DeepFM's edge needs the wide, messy feature space this dataset does not have. The one hyperparameter that mattered for either model was the negative count (16 &gt; 8 &gt; 4 at every embedding dim); capacity did nothing consistent.</p>
       <p><strong>The GenRec upgrades worked — up to a ceiling.</strong> Scaling to 3B/full data and constraining beams to the catalog lifted HR@10 by 56% (0.0171 &rarr; 0.0267) and pushed NDCG@10 past popularity, at the cost of ~15% at top-5 (full-data training skews toward popular names). GenRec v2 sits clearly above every rating-prediction baseline, within 4% of popularity at HR@10 — and still well short of BPR (0.0428).</p>
       <p><strong>Rating predictors are poor top-N retrievers.</strong> KNN and SVD predict ratings well (RMSE 0.93–0.99) yet almost never surface the next-visited restaurant. Optimizing squared error rewards obscure items with a few perfect ratings.</p>
       <p><strong>The LLM internalized the catalog.</strong> 97.7% of freely generated names are real businesses, and the hit/miss examples show it exploiting name semantics — yogurt shops for yogurt fans, sushi for sushi regulars — exactly the paper's motivation for names over IDs.</p>
@@ -463,7 +544,8 @@
   <section>
     <h2>Caveats</h2>
     <ul class="caveats" style="margin-top: 14px;">
-      <li>One training run per recipe, no hyperparameter search; the top-5 regression from full-data training suggests a lower LR + validation-based early stopping as the next lever.</li>
+      <li>One training run per recipe, no hyperparameter search — except the two neural CTR models, whose grid search on a validation split gives them an advantage the other baselines did not get.</li>
+      <li>Absolute hit counts are small (55–97 of 1,988 users), so gaps under ~10 hits sit inside the noise; use the seed-stability table rather than the single-run ordering.</li>
       <li>Name-level evaluation merges chain locations (every &ldquo;Subway&rdquo; counts as one item) — applied equally to all models.</li>
       <li>Paths not yet tried: hybrid BPR-candidates + LLM reranking, richer prompts (ratings, categories, city), and 7B-class models per the paper.</li>
     </ul>
@@ -477,6 +559,8 @@ python genrec/02_classic_baselines.py  # classic baselines + sanity check
 python genrec/03_genrec_train.py       # v2: 3B, 3 epochs, ~4.3 h on RTX 5070 Ti
 python genrec/04_genrec_infer.py       # constrained 20-beam generation, ~22 min
 python genrec/06_recommenders_baselines.py  # SAR + BPR (py3.11 venv, see README)
+python genrec/07_neural_ctr_baselines.py  # DeepFM + Wide &amp; Deep (--sweep re-runs the grid)
+python genrec/08_pinsage.py               # PinSage (--sweep main|band, --variant ablations)
 python genrec/05_evaluate.py           # final table (all variants)</code></pre>
   </section>
 

@@ -12,7 +12,10 @@ DATA = ROOT / "data"
 RESULTS = ROOT / "results"
 
 MODELS = ["popularity", "rank_based", "user_knn", "item_knn", "svd",
-          "sar", "bpr", "genrec", "genrec_3b_free", "genrec_3b", "genrec_3b_xs"]
+          "sar", "bpr", "deepfm", "widedeep",
+          "pinsage_maxpool", "pinsage_meanpool", "pinsage_meanpool_xent",
+          "pinsage_meanpool_hard", "pinsage",
+          "genrec", "genrec_3b_free", "genrec_3b", "genrec_3b_xs"]
 LABELS = {
     "popularity": "Popularity (most-rated)",
     "rank_based": "Rank-based (avg rating)",
@@ -21,6 +24,13 @@ LABELS = {
     "svd": "SVD / matrix factorization (tuned)",
     "sar": "SAR (recommenders-team lib)",
     "bpr": "BPR (Cornac via recommenders)",
+    "deepfm": "DeepFM (torch, FM + deep MLP)",
+    "widedeep": "Wide & Deep (torch, crosses + MLP)",
+    "pinsage_maxpool": "PinSage abl. max-pooling",
+    "pinsage_meanpool": "PinSage abl. mean-pooling",
+    "pinsage_meanpool_xent": "PinSage abl. mean-pooling-xent",
+    "pinsage_meanpool_hard": "PinSage abl. mean-pooling-hard",
+    "pinsage": "PinSage (GCN, importance pooling)",
     "genrec": "GenRec v1 (1B quick, free beams)",
     "genrec_3b_free": "GenRec (3B full, free 10 beams)",
     "genrec_3b": "GenRec v2 (3B full, constrained)",
